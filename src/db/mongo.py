@@ -3,11 +3,16 @@ from pymongo.database import Database
 
 
 class MongoService:
+    uri: str                      
+    database_name: str            
+    _client: MongoClient | None   
+    db: Database | None          
+
     def __init__(self, uri: str, database: str = "neurocheck"):
         self.uri = uri
         self.database_name = database
-        self._client: MongoClient | None = None
-        self.db: Database | None = None
+        self._client = None
+        self.db = None
 
     def connect(self):
         self._client = MongoClient(self.uri)

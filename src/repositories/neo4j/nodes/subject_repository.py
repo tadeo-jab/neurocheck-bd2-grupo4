@@ -1,16 +1,18 @@
 from neo4j import Driver
+from src.models.node_models import Subject
 
 
 class SubjectNodeRepo:
     def __init__(self, driver: Driver):
         self.driver = driver
 
-    def create(self, uid: str, name: str, code: str) -> dict:
+    def create(self, subject: Subject) -> dict:
+        d = subject.model_dump()
         with self.driver.session() as session:
             return session.execute_write(
                 lambda tx: tx.run(
-                    "CREATE (s:Subject {uid: $uid, name: $name, code: $code}) RETURN s",
-                    uid=uid, name=name, code=code,
+                    "CREATE (s:Subject {uid: $uid, name: $name, difficulty_level: $dl}) RETURN s",
+                    uid=d["uid"], name=d["name"], dl=d["difficulty_level"],
                 ).single().data()
             )
 

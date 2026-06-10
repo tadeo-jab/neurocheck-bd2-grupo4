@@ -1,16 +1,18 @@
 from neo4j import Driver
+from src.models.node_models import Activity
 
 
 class ActivityNodeRepo:
     def __init__(self, driver: Driver):
         self.driver = driver
 
-    def create(self, uid: str, name: str, type: str) -> dict:
+    def create(self, activity: Activity) -> dict:
+        d = activity.model_dump()
         with self.driver.session() as session:
             return session.execute_write(
                 lambda tx: tx.run(
-                    "CREATE (a:Activity {uid: $uid, name: $name, type: $type}) RETURN a",
-                    uid=uid, name=name, type=type,
+                    "CREATE (a:Activity {uid: $uid, name: $name, description: $desc, type: $type, difficulty: $diff, estimated_time_minutes: $etm, cognitive_load: $cl, max_score: $ms}) RETURN a",
+                    uid=d["uid"], name=d["name"], desc=d["description"], type=d["type"], diff=d["difficulty"], etm=d["estimated_time_minutes"], cl=d["cognitive_load"], ms=d["max_score"],
                 ).single().data()
             )
 

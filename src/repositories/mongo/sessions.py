@@ -1,14 +1,15 @@
 from pymongo.database import Database
+from src.models.collection_models import StudySession
 
 
-class SessionRepository:
-    COLLECTION = "Sessions"
+class StudySessionRepository:
+    COLLECTION = "sesiones_estudio"
 
     def __init__(self, db: Database):
         self.collection = db[self.COLLECTION]
 
-    def create(self, document: dict) -> str:
-        result = self.collection.insert_one(document)
+    def create(self, session: StudySession) -> str:
+        result = self.collection.insert_one(session.model_dump())
         return str(result.inserted_id)
 
     def find_by_id(self, session_id: str) -> dict | None:

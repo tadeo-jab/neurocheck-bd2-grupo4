@@ -1,11 +1,13 @@
 from neo4j import Driver
+from src.models.relationship_models import Completes
 
 
 class CompletesRepo:
     def __init__(self, driver: Driver):
         self.driver = driver
 
-    def create(self, student_uid: str, activity_uid: str, score: float = 0.0):
+    def create(self, student_uid: str, activity_uid: str, rel: Completes):
+        d = rel.model_dump()
         with self.driver.session() as session:
             session.execute_write(
                 lambda tx: tx.run(
@@ -13,9 +15,11 @@ class CompletesRepo:
                     MATCH (s:Student {uid: $suid})
                     MATCH (a:Activity {uid: $auid})
                     MERGE (s)-[r:COMPLETES]->(a)
-                    SET r.score = $score, r.completed_at = datetime()
+                    SET r.score_obtained = $so, r.time_taken_seconds = $tts,
+                        r.completed_at = datetime(), r.attempts = $att, r.approved = $app
                     """,
-                    suid=student_uid, auid=activity_uid, score=score,
+                    suid=student_uid, auid=activity_uid,
+                    so=d["score_obtained"], tts=d["time_taken_seconds"], att=d["attempts"], app=d["approved"],
                 )
             )
 

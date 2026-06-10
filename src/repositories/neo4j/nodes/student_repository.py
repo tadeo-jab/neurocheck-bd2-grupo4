@@ -1,34 +1,36 @@
 from neo4j import Driver
+from src.models.node_models import Student
 
 
-class ConceptNodeRepo:
+class StudentNodeRepo:
     def __init__(self, driver: Driver):
         self.driver = driver
 
-    def create(self, uid: str, name: str, description: str = "") -> dict:
+    def create(self, student: Student) -> dict:
+        d = student.model_dump()
         with self.driver.session() as session:
             return session.execute_write(
                 lambda tx: tx.run(
-                    "CREATE (c:Concept {uid: $uid, name: $name, description: $desc}) RETURN c",
-                    uid=uid, name=name, desc=description,
+                    "CREATE (s:Student {uid: $uid, name: $name, mastery_level: $ml, preferred_style: $ps, current_session_id: $csid}) RETURN s",
+                    uid=d["uid"], name=d["name"], ml=d["mastery_level"], ps=d["preferred_style"], csid=d["current_session_id"],
                 ).single().data()
             )
 
     def find_by_uid(self, uid: str) -> dict | None:
         with self.driver.session() as session:
             result = session.run(
-                "MATCH (c:Concept {uid: $uid}) RETURN c", uid=uid
+                "MATCH (s:Student {uid: $uid}) RETURN s", uid=uid
             ).single()
             return result.data() if result else None
 
     def find_all(self) -> list[dict]:
         with self.driver.session() as session:
-            return session.run("MATCH (c:Concept) RETURN c").data()
+            return session.run("MATCH (s:Student) RETURN s").data()
 
     def delete(self, uid: str):
         with self.driver.session() as session:
             session.execute_write(
                 lambda tx: tx.run(
-                    "MATCH (c:Concept {uid: $uid}) DETACH DELETE c", uid=uid
+                    "MATCH (s:Student {uid: $uid}) DETACH DELETE s", uid=uid
                 )
             )

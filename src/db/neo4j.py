@@ -1,11 +1,16 @@
-from neo4j import GraphDatabase
+from neo4j import Driver, GraphDatabase
 
 
 class Neo4jService:
+    uri: str
+    auth: tuple[str, str]
+    _driver: Driver | None
+
     def __init__(self, uri: str, user: str, password: str):
         self.uri = uri
         self.auth = (user, password)
         self._driver = None
+
 
     def connect(self):
         self._driver = GraphDatabase.driver(self.uri, auth=self.auth)

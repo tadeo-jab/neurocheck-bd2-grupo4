@@ -10,23 +10,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Wait for healthy containers before connecting: `docker compose ps` (both services should show healthy)
 - Python entry point lives at `src/main.py` (run with `python src/main.py`)
 
+## Config
+
+`src/config.py` — Pydantic `Settings` with env prefix `NEUROCHECK_` and optional `.env` file. Defaults match docker-compose credentials for local dev. Config keys: `mongo_uri`, `neo4j_uri`, `neo4j_user`, `neo4j_password`.
+
 ## Architecture
 
-Dual-database project backing a clinical/medical domain ("NeuroCheck"). Two graph/service layers in `src/`:
+Layered dual-database project for a clinical/learning platform ("NeuroCheck"). Layers flow top-down: **services → repositories → db connectors**. Pydantic models sit alongside as shared types.
 
-- **MongoDB 7** — document store (`src/mongo_service.py`). Connection via `pymongo`, auth against `admin` db, default database `neurocheck`. The `MongoService` class wraps `pymongo.MongoClient` with connect/disconnect/session lifecycle and convenience CRUD helpers.
+### DB layer (`src/db/`)
 
-- **Neo4j 5** — graph database (`src/neo4j_service.py`). Connection via `neo4j` driver over Bolt (`bolt://localhost:7687`). The `Neo4jService` class wraps `GraphDatabase.driver` with `connect_session()` for one-shot queries and `write()`/`read()` for transactional work.
+Thin wrappers over the drivers — no CRUD helpers, no business logic:
 
-Both services follow the same pattern: optional constructor parameters default to docker-compose values, manual `connect()`/`disconnect()`, and context-manager shortcuts for fire-and-forget usage.
+- **`MongoService`** — wraps `pymongo.MongoClient`. Exposes `self.db` (a `pymongo.database.Database`). Context-manager via `__enter__`/`__exit__`.
+- **`Neo4jService`** — wraps `neo4j.GraphDatabase.driver`. Exposes `read(query, **params)` and `write(query, **params)` for transactional work. Context-manager via `__enter__`/`__exit__`.
+
+### Models (`src/models/`)
+
+Pydantic v2 models mirroring the domain entities. `learning.py` holds Neo4j node models (`Student`, `Concept`, `Activity`, `Resource`, `Subject`) and relationship property models (`Learns`, `Completes`, `PrerequisiteOf`, `Uses`, `BelongsTo`). `session.py` holds MongoDB document models (`Session`, `StudentConfig`).
+
+### Repositories (`src/repositories/`)
+
+One repo class per collection/node-type/relationship. All take a driver/database in their constructor — they do not create connections themselves.
+
+- `mongo/` — `SessionRepository`, `StudentConfigRepository` (operate on `pymongo` collections)
+- `neo4j/nodes/` — `StudentNodeRepo`, `ConceptNodeRepo`, `ActivityNodeRepo`, `ResourceNodeRepo`, `SubjectNodeRepo` (CREATE/MATCH/DELETE Cypher)
+- `neo4j/relationships/` — `LearnsRepo`, `CompletesRepo`, `PrerequisiteOfRepo`, `UsesRepo`, `BelongsToRepo` (MERGE/DELETE relationship Cypher)
+
+### Services (`src/services/`)
+
+Orchestrate repos into higher-level operations:
+
+- **`SessionService`** — `start_session()`, `log_event()` using Mongo repos
+- **`LearningService`** — `enroll_in_concept()` using Neo4j repos (wires Student+Concept nodes and Learns relationship)
 
 ## Docker Compose
 
 `docker-compose.yml` defines a custom network `neurocheck-network` with two services:
 
-| Service | Image  | Ports                  | Auth                    |
-|---------|--------|------------------------|-------------------------|
-| mongo   | mongo:7 | 27017                  | neurocheckMongo/neurocheck |
-| neo4j   | neo4j:5 | 7474 (HTTP), 7687 (Bolt) | neo4j/neurocheck        |
+| Service | Image  | Ports                  | Auth                          |
+|---------|--------|------------------------|-------------------------------|
+| mongo   | mongo:7 | 27017                  | neurocheckMongo / neurocheck  |
+| neo4j   | neo4j:5 | 7474 (HTTP), 7687 (Bolt) | neo4j / neurocheck          |
 
-Both use named volumes (`mongo_data`, `neo4j_data`) and healthchecks. MongoDB healthcheck pings via `mongosh`, Neo4j via `wget` against its HTTP endpoint.
+Both use named volumes (`mongo_data`, `neo4j_data`) and healthchecks.
