@@ -29,5 +29,35 @@ class MateriaEstudianteRepository:
         """
         return self._neo4j.read(query, id_estudiante=id_estudiante)
 
+    def get_student_currently_enrolled(self, id_estudiante: str) -> list[Materia]:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia)
+            WHERE rel.completado = false
+            RETURN m
+        """
+        resultados = self._neo4j.read(query, id_estudiante=id_estudiante)
+        return [Materia(**r["m"]) for r in resultados]
+
+
+    def set_student_enroll(self, id_estudiante: str, id_materia: str) -> None:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante}), (m:Materia {id: $id_materia})
+            CREATE (e)-[:ANOTADO_EN {
+                completado: false,
+                fecha_inicio: datetime(),
+                fecha_fin: null,
+                estilo_actual: e.estilo_preferido
+            }]->(m)
+        """
+        self._neo4j.write(query, id_estudiante=id_estudiante, id_materia=id_materia)
+
+    def get_enrollment_style(self, id_estudiante: str, id_materia: str) -> str | None:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia {id: $id_materia})
+            RETURN rel.estilo_actual AS estilo
+        """
+        resultados = self._neo4j.read(query, id_estudiante=id_estudiante, id_materia=id_materia)
+        return resultados[0]["estilo"] if resultados else None
+
 
 

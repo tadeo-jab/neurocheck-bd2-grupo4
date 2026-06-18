@@ -1,5 +1,5 @@
 from core.src.db.mongo import MongoService
-from core.src.model.collection_models import CaminoAprendizaje
+from core.src.model.collection_models import Actividad, CaminoAprendizaje, Recurso
 
 
 class CurriculumRepository:
@@ -8,7 +8,7 @@ class CurriculumRepository:
     def __init__(self, mongo: MongoService):
         self._mongo = mongo
 
-    def get_camino_por_estilo(self, id_materia: str, estilo: str) -> CaminoAprendizaje | None:
+    def get_course_by_style(self, id_materia: str, estilo: str) -> CaminoAprendizaje | None:
         doc = self._mongo.db.curriculum.find_one(
             {"_id": id_materia},
             {f"caminos.{estilo}": 1}
@@ -17,3 +17,13 @@ class CurriculumRepository:
             return None
         camino = doc.get("caminos", {}).get(estilo)
         return CaminoAprendizaje(**camino) if camino else None
+
+    def get_resource(self, id_recurso: str) -> Recurso | None:
+        doc = self._mongo.db.recursos.find_one({"_id": id_recurso})
+        return Recurso(**doc) if doc else None
+
+    def get_activity(self, id_actividad: str) -> Actividad | None:
+        doc = self._mongo.db.actividades.find_one({"_id": id_actividad})
+        return Actividad(**doc) if doc else None
+    
+    

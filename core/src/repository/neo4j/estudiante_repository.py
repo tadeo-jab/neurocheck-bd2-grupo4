@@ -8,15 +8,34 @@ class EstudianteRepository:
     def __init__(self, neo4j: Neo4jService):
         self._neo4j = neo4j
 
-    def get_mate_by_id(self, id: str) -> list[Estudiante]:
+    def get_mate_by_id(self, id: str) -> list[dict]:
         query = """
-            MATCH (e:Estudiante {id: $id})-[:COMPAÑERO_DE]-(compañero:Estudiante)
+            MATCH (e:Estudiante {id: $id})-[rel:COMPAÑERO_DE]-(compañero:Estudiante)
             OPTIONAL MATCH (e)-[:ESTUDIO_CON]-(compañero)
-            RETURN compañero, COUNT(*) AS estudios_compartidos
+            RETURN compañero,
+                   rel.solicitud_aceptada AS aceptado,
+                   COUNT(*) AS estudios_compartidos
             ORDER BY estudios_compartidos DESC
         """
         resultados = self._neo4j.read(query, id=id)
-        return [Estudiante(**r["compañero"]) for r in resultados]
+        return [
+            {"estudiante": Estudiante(**r["compañero"]), "aceptado": r["aceptado"]}
+            for r in resultados
+        ]
+
+    def crear(self, id: str, nombre: str, estilo_preferido: str) -> None:
+        query = """
+            CREATE (:Estudiante {
+                id: $id,
+                nombre: $nombre,
+                estilo_preferido: $estilo_preferido
+            })
+        """
+        self._neo4j.write(query, id=id, nombre=nombre, estilo_preferido=estilo_preferido)
+
+    def exists_by_id(self, id: str) -> bool:
+        query = "MATCH (e:Estudiante {id: $id}) RETURN COUNT(e) > 0 AS existe"
+        return self._neo4j.read(query, id=id)[0]["existe"]
 
     def request_mate(self, id_a: str, id_b: str) -> None:
         query = """

@@ -9,6 +9,10 @@ class MateriaRepository:
         self._neo4j = neo4j
 
 
+    def exists_by_id(self, id: str) -> bool:
+        query = "MATCH (m:Materia {id: $id}) RETURN COUNT(m) > 0 AS existe"
+        return self._neo4j.read(query, id=id)[0]["existe"]
+
     def get_all_subjects(self) -> list[Materia]:
         query = "MATCH (m:Materia) RETURN m"
         resultados = self._neo4j.read(query)

@@ -21,9 +21,13 @@ class Intento(BaseModel):
     id_contenido: str
     tipo_contenido: Literal["recurso", "actividad"]
     inicio: datetime
+    
+    fin: datetime | None = None
     duracion_segundos: int
     pausas: int
+    duracion_pausa_segundos: int
     terminado: bool
+    auto_percepcion: int | None = None  # 1-5
     
     # Solo para actividades
     aciertos: int | None = None
