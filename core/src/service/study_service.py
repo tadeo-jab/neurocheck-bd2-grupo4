@@ -11,7 +11,7 @@ from src.repository.neo4j.estudiante_repository import EstudianteRepository
 from src.repository.neo4j.materia_repository import MateriaRepository
 from src.repository.neo4j.materia_estudiante_repository import MateriaEstudianteRepository
 from src.repository.redis.intento_cache import IntentoCacheRepository
-from src.repository.redis.session_cache import SessionCacheRepository
+from src.repository.redis.sesion_cache import SessionCacheRepository
 
 
 class StudyService:

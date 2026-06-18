@@ -1,5 +1,5 @@
-from core.src.db.neo4j import Neo4jService
-from core.src.model.node_models import Estudiante
+from src.db.neo4j import Neo4jService
+from src.model.node_models import Estudiante
 
 
 class EstudianteRepository:

@@ -1,5 +1,5 @@
-from core.src.db.mongo import MongoService
-from core.src.model.collection_models import Actividad, CaminoAprendizaje, Recurso
+from src.db.mongo import MongoService
+from src.model.collection_models import Actividad, CaminoAprendizaje, Recurso
 
 
 class CurriculumRepository:

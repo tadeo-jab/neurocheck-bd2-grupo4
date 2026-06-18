@@ -1,6 +1,6 @@
 from datetime import datetime
+from typing import Literal
 
-from pyparsing import Literal
 from pydantic import BaseModel
 
 

@@ -14,11 +14,9 @@ class CurriculumService:
     def get_student_enrollments(self, id_estudiante: str) -> list[Materia]:
         return self._materia_estudiante_repo.get_student_currently_enrolled(id_estudiante)
 
-    def get_curriculum_tree(self, id_estudiante: str, id_materia: str) -> dict:
+    def get_curriculum_tree(self, id_estudiante: str) -> dict:
         if not self._estudiante_repo.exists_by_id(id_estudiante):
             raise ValueError(f"Estudiante {id_estudiante} no encontrado")
-        if not self._materia_repo.exists_by_id(id_materia):
-            raise ValueError(f"Materia {id_materia} no encontrada")
 
         return {
             "nodos": self._materia_repo.get_all_subjects(),

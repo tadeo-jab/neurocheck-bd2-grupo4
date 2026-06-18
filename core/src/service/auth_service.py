@@ -9,7 +9,7 @@ from src.db.neo4j import Neo4jService
 from src.repository.mongo.estudiante_mdb_repository import EstudianteMDBRepository
 from src.repository.mongo.sesion_repository import SesionRepository
 from src.repository.neo4j.estudiante_repository import EstudianteRepository
-from src.repository.redis.session_cache import SessionCacheRepository
+from src.repository.redis.sesion_cache import SessionCacheRepository
 from src.model.collection_models import Estudiante, Sesion
 
 
