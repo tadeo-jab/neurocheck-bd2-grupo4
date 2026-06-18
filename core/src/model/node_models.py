@@ -1,11 +1,12 @@
 from datetime import datetime
+from pyparsing import Literal
 from pydantic import BaseModel
 
 
 class Estudiante(BaseModel):
     id: str
     nombre: str
-    estilo_preferido: str
+    estilo_preferido: Literal["visual", "auditivo", "kinestésico", "textual"]
 
 
 class Materia(BaseModel):
@@ -22,7 +23,7 @@ class Recurso(BaseModel):
     tipo: str
     duracion_estimada: int
     carga_cognitiva: float
-    estilo_aprendizaje_opt: str
+    estilo_aprendizaje_opt: Literal["visual", "auditivo", "kinestésico", "textual"]
 
 
 class Actividad(BaseModel):

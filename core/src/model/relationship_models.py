@@ -1,19 +1,18 @@
 from datetime import datetime
+
+from pyparsing import Literal
 from pydantic import BaseModel
 
 
 class Requiere(BaseModel):
     peso: float
     obligatorio: bool
+    secuela: bool
 
 
 class Alternativa(BaseModel):
     peso_adicional: float
-    estilo_favorecido: str
-
-
-class Profundiza(BaseModel):
-    peso_adicional: float
+    estilo_favorecido: Literal["visual", "auditivo", "kinestésico", "textual"]
 
 
 class Explica(BaseModel):

@@ -1,56 +1,52 @@
 from datetime import datetime
+
+from pyparsing import Optional, Literal
 from pydantic import BaseModel
-
-
-class SesionEstudiante(BaseModel):
-    id: str
-    fecha_ini: datetime
-    fecha_fin: datetime | None = None
-    intentos_estudio: list[str] = []
-    intentos_actividades: list[str] = []
-    fatiga_estimada: float
 
 
 class Estudiante(BaseModel):
     id: str
-    estilo_preferido: str
+    estilo_preferido: Literal["visual", "auditivo", "kinestésico", "textual"]
     nombre: str
     email: str
     password_hash: str
 
 
 
-class IntentoEstudio(BaseModel):
+class Intento(BaseModel):
     id: str
-    tiempo: datetime
+    estudiante: Estudiante
+    id_sesion: str
+    id_materia: str
+    id_contenido: str
+    tipo_contenido: Literal["recurso", "actividad"]
+    inicio: datetime
+    duracion_segundos: int
     pausas: int
-    duracion_total: int
     terminado: bool
-    id_recurso: str
-    id_materia: str
-    id_estudiante: str
-    id_sesion: str
+    
+    # Solo para actividades
+    aciertos: int | None = None
+    errores: int | None = None
+    puntaje: float | None = None
+    aprobado: bool | None = None
 
 
-class IntentoActividad(BaseModel):
+
+class Sesion(BaseModel):
     id: str
-    tiempo: datetime
-    duracion_total: int
-    pausas: int
-    aciertos: int
-    errores: int
-    puntaje: float
-    aprobado: bool
-    id_actividad: str
-    id_materia: str
-    id_estudiante: str
-    id_sesion: str
+    estudiante: Estudiante
+    fecha_ini: datetime
+    fecha_fin: datetime | None = None
+    intentos_estudio: list[Intento] = []
+    fatiga_estimada: float
+
 
 
 class EventoInteraccion(BaseModel):
     id: str
-    id_usuario: str
-    id_sesion: str
+    id_usuario: Estudiante
+    sesion: Sesion
     tipo_evento: str
     timestamp: datetime
 
@@ -65,11 +61,36 @@ class Recurso(BaseModel):
     link_aux: str | None = None
 
 
+class Pregunta(BaseModel):
+    id: str
+    texto: str
+    opciones: list[str]
+    respuesta_correcta: int
+    puntaje: float
+
 class Actividad(BaseModel):
     id: str
     nombre: str
-    tipo: str
-    preguntas: list[dict] = []
+    tipo: str  # "quiz", "ejercicio", "proyecto"
+    preguntas: list[Pregunta] = []
+    dificultad: float
+    puntaje_maximo: float
+
+
+class CaminoAprendizaje(BaseModel):
+    nombre: str
+    descripcion: Optional[str] = None
+    secuencia: list[dict] = [Literal["recurso", "actividad"], str] # Ej. [{"tipo": "recurso", "id": "rec123"}, {"tipo": "actividad", "id": "act456"}]
+
+
+class Curriculum(BaseModel):
+    id_materia: str  # id_materia
+    nombre: str
+    tiempo_estimado_horas: int
+    caminos: dict[
+        Literal["visual", "auditivo", "kinestesico", "escrito"],
+        CaminoAprendizaje
+    ]
 
 
 
