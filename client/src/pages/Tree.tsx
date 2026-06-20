@@ -50,8 +50,6 @@ export default function Tree() {
   const containerRef = useRef<HTMLDivElement>(null)
   const cyRef = useRef<Core | null>(null)
   const nodosRef = useRef<Nodo[]>([])
-  const navigateRef = useRef(navigate)
-  navigateRef.current = navigate
   const [loading, setLoading] = useState(true)
   const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
@@ -59,8 +57,8 @@ export default function Tree() {
   const handleTap = useCallback((evt: cytoscape.EventObject) => {
     const nodeId = evt.target.id()
     const materia = nodosRef.current.find((n) => n.id === nodeId)
-    if (materia) navigateRef.current(`/subject/${nodeId}`, { state: materia })
-  }, [])
+    if (materia) navigate(`/subject/${nodeId}`, { state: materia })
+  }, [navigate])
 
   const handleMouseOver = useCallback((evt: cytoscape.EventObject) => {
     const nodeId = evt.target.id()
