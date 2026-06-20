@@ -26,7 +26,7 @@ def get_tree( id_estudiante: str,
     return service.get_curriculum_tree(id_estudiante)
 
 
-@router.get("/subject/{id_materia}/tree")
+@router.get("/subject/{id_materia}/tree/{id_estudiante}")
 def get_subject_tree(id_materia: str, id_estudiante: str,
                      service: CurriculumService = Depends(get_curriculum_service)):
     return service.get_subject_tree(id_estudiante, id_materia)

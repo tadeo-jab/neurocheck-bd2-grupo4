@@ -90,7 +90,7 @@ class StudyService:
         if not doc:
             raise ValueError(f"Intento {intento_id} no encontrado.")
         return self._cache_intento.pausar_cronometro(
-            doc["id_contenido"], doc["estudiante"]["id"]
+            doc["id_contenido"], doc["estudiante"]["uid"]
         )
 
     def resume_attempt(self, intento_id: str) -> float:
@@ -98,7 +98,7 @@ class StudyService:
         if not doc:
             raise ValueError(f"Intento {intento_id} no encontrado.")
         return self._cache_intento.reanudar_cronometro(
-            doc["id_contenido"], doc["estudiante"]["id"]
+            doc["id_contenido"], doc["estudiante"]["uid"]
         )
 
     def close_attempt(self, intento_id: str, *, terminado: bool = True,
@@ -112,7 +112,7 @@ class StudyService:
             raise ValueError(f"Intento {intento_id} no encontrado.")
 
         actividad_id = doc["id_contenido"]
-        user_id = doc["estudiante"]["id"]
+        user_id = doc["estudiante"]["uid"]
         datos = self._cache_intento.obtener_datos(actividad_id, user_id)
 
         if datos:
@@ -125,7 +125,7 @@ class StudyService:
             duracion_pausa = doc.get("duracion_pausa_segundos", 0)
 
         intento = Intento(
-            id=doc["_id"],
+            uid=doc["uid"],
             estudiante=Estudiante(**doc["estudiante"]),
             id_sesion=doc["id_sesion"],
             id_materia=doc["id_materia"],

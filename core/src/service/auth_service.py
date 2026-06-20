@@ -39,14 +39,14 @@ class AuthService:
         sesion_id = uuid.uuid4().hex
 
         self._sesion_repo.create_session(Sesion(
-            id=sesion_id,
+            uid=sesion_id,
             estudiante=estudiante,
             fecha_ini=datetime.now(timezone.utc),
             fatiga_estimada=0.0,
         ))
 
         self._cache.crear_sesion(token, {
-            "user_id": estudiante.id,
+            "user_id": estudiante.uid,
             "sesion_id": sesion_id,
             "email": estudiante.email,
             "rol": "estudiante",
@@ -54,12 +54,12 @@ class AuthService:
             "creado": datetime.now(timezone.utc).isoformat(),
             "ip": ip,
         })
-        self._cache.vincular_usuario(estudiante.id, token)
+        self._cache.vincular_usuario(estudiante.uid, token)
 
         return {
             "token": token,
             "user": {
-                "id": estudiante.id,
+                "id": estudiante.uid,
                 "nombre": estudiante.nombre,
                 "email": estudiante.email,
                 "estilo_preferido": estudiante.estilo_preferido,
@@ -77,7 +77,7 @@ class AuthService:
         password_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
         estudiante = Estudiante(
-            id=estudiante_id,
+            uid=estudiante_id,
             nombre=nombre,
             email=email,
             password_hash=password_hash,

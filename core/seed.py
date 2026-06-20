@@ -104,7 +104,7 @@ def seed_mongo(mongo: MongoService) -> None:
     print("[Mongo] Insertando estudiantes...")
     for e in ESTUDIANTES:
         db.estudiantes.insert_one({
-            "_id": e["id"],
+            "uid": e["id"],
             "nombre": e["nombre"],
             "email": e["email"],
             "password_hash": _hash(e["password"]),
@@ -114,7 +114,7 @@ def seed_mongo(mongo: MongoService) -> None:
     print("[Mongo] Insertando recursos...")
     for r in RECURSOS:
         db.recursos.insert_one({
-            "_id": r["id"],
+            "uid": r["id"],
             "nombre": r["nombre"],
             "tipo": r["tipo"],
             "mime_type": r["mime"],
@@ -125,7 +125,7 @@ def seed_mongo(mongo: MongoService) -> None:
     print("[Mongo] Insertando actividades...")
     for a in ACTIVIDADES:
         db.actividades.insert_one({
-            "_id": a["id"],
+            "uid": a["id"],
             "nombre": a["nombre"],
             "tipo": a["tipo"],
             "dificultad": a["diff"],
@@ -137,7 +137,7 @@ def seed_mongo(mongo: MongoService) -> None:
     for m in MATERIAS:
         camino = _camino_estandar(m["nombre"])
         db.curriculum.insert_one({
-            "_id": m["id"],
+            "uid": m["id"],
             "id_materia": m["id"],
             "nombre": m["nombre"],
             "tiempo_estimado_horas": m["horas"],
@@ -237,7 +237,7 @@ def seed_neo4j(neo4j: Neo4jService) -> None:
                 completado: false,
                 fecha_inicio: $ahora,
                 fecha_fin: null,
-                estilo_actual: ''
+                estilo_actual: 'visual'
             }]->(m)
         """, est_id=est_id, mat_id=mat_id,
              ahora=datetime.now(timezone.utc).isoformat())

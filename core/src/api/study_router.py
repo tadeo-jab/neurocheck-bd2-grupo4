@@ -24,7 +24,7 @@ class CloseAttemptBody(BaseModel):
 
 # ── Endpoints ───────────────────────────────────────────
 
-@router.get("/subject/{id_materia}/course")
+@router.get("/course/{id_materia}/{id_estudiante}")
 def get_course(id_materia: str, id_estudiante: str,
                service: StudyService = Depends(get_study_service)):
     return service.get_subject_course(id_estudiante, id_materia)

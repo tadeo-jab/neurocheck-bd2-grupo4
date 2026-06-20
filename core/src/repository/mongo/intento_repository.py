@@ -15,7 +15,7 @@ class IntentoRepository:
                        id_contenido: str, tipo_contenido: str,
                        inicio: datetime) -> None:
         doc = {
-            "_id": id,
+            "uid": id,
             "estudiante": estudiante.model_dump(),
             "id_sesion": id_sesion,
             "id_materia": id_materia,
@@ -30,13 +30,13 @@ class IntentoRepository:
         self._mongo.db.intentos.insert_one(doc)
 
     def find_by_id(self, id_intento: str) -> dict | None:
-        return self._mongo.db.intentos.find_one({"_id": id_intento})
+        return self._mongo.db.intentos.find_one({"uid": id_intento})
 
     def close_attempt(self, intento: Intento) -> None:
-        datos = intento.model_dump(exclude={"id", "estudiante", "id_sesion",
+        datos = intento.model_dump(exclude={"uid", "estudiante", "id_sesion",
                                             "id_materia", "id_contenido",
                                             "tipo_contenido", "inicio"})
         self._mongo.db.intentos.update_one(
-            {"_id": intento.id},
+            {"uid": intento.uid},
             {"$set": datos}
         )

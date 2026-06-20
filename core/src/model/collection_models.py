@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class Estudiante(BaseModel):
-    id: str
+    uid: str
     estilo_preferido: Literal["visual", "auditivo", "kinestésico", "textual"]
     nombre: str
     email: str
@@ -14,7 +14,7 @@ class Estudiante(BaseModel):
 
 
 class Intento(BaseModel):
-    id: str
+    uid: str
     estudiante: Estudiante
     id_sesion: str
     id_materia: str
@@ -38,7 +38,7 @@ class Intento(BaseModel):
 
 
 class Sesion(BaseModel):
-    id: str
+    uid: str
     estudiante: Estudiante
     fecha_ini: datetime
     fecha_fin: datetime | None = None
@@ -48,7 +48,7 @@ class Sesion(BaseModel):
 
 
 class EventoInteraccion(BaseModel):
-    id: str
+    uid: str
     id_usuario: Estudiante
     sesion: Sesion
     tipo_evento: str
@@ -56,7 +56,7 @@ class EventoInteraccion(BaseModel):
 
 
 class Recurso(BaseModel):
-    id: str
+    uid: str
     nombre: str
     tipo: str  # "pdf", "video", etc.
     recurso_bin: bytes | None = None  # bson.Binary en MongoDB (< 16 MB); para archivos mas grandes usar GridFS
@@ -66,14 +66,14 @@ class Recurso(BaseModel):
 
 
 class Pregunta(BaseModel):
-    id: str
+    uid: str
     texto: str
     opciones: list[str]
     respuesta_correcta: int
     puntaje: float
 
 class Actividad(BaseModel):
-    id: str
+    uid: str
     nombre: str
     tipo: str  # "quiz", "ejercicio", "proyecto"
     preguntas: list[Pregunta] = []

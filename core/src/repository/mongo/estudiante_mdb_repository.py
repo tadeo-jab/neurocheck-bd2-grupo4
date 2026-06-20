@@ -13,8 +13,8 @@ class EstudianteMDBRepository:
         return Estudiante(**doc) if doc else None
 
     def find_by_id(self, id: str) -> Estudiante | None:
-        doc = self._mongo.db.estudiantes.find_one({"_id": id})
+        doc = self._mongo.db.estudiantes.find_one({"uid": id})
         return Estudiante(**doc) if doc else None
 
     def insert(self, estudiante: Estudiante) -> None:
-        self._mongo.db.estudiantes.insert_one(estudiante.model_dump(by_alias=True))
+        self._mongo.db.estudiantes.insert_one(estudiante.model_dump())

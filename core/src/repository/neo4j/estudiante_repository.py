@@ -40,7 +40,7 @@ class EstudianteRepository:
     def request_mate(self, id_a: str, id_b: str) -> None:
         query = """
             MATCH (a:Estudiante {id: $id_a}), (b:Estudiante {id: $id_b})
-            MERGE (a)-[:COMPAÑERO_DE {solicitud_aceptada: false, fecha_desde: null}]-(b)
+            MERGE (a)-[:COMPAÑERO_DE {solicitud_aceptada: false}]-(b)
         """
         self._neo4j.write(query, id_a=id_a, id_b=id_b)
 
