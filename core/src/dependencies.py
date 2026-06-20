@@ -4,8 +4,10 @@ from src.config import settings
 from src.db.mongo import MongoService
 from src.db.neo4j import Neo4jService
 from src.service.admin_service import AdminService
+from src.service.analytics_service import AnalyticsService
 from src.service.auth_service import AuthService
 from src.service.curriculum_service import CurriculumService
+from src.service.graph_service import GraphService
 from src.service.mates_service import MatesService
 from src.service.study_service import StudyService
 
@@ -51,3 +53,14 @@ def get_admin_service(
     mongo: MongoService = Depends(get_mongo),
 ) -> AdminService:
     return AdminService(mongo)
+
+def get_analytics_service(
+    mongo: MongoService = Depends(get_mongo),
+    neo4j: Neo4jService = Depends(get_neo4j),
+) -> AnalyticsService:
+    return AnalyticsService(mongo, neo4j)
+
+def get_graph_service(
+    neo4j: Neo4jService = Depends(get_neo4j),
+) -> GraphService:
+    return GraphService(neo4j)

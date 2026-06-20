@@ -39,6 +39,13 @@ class IntentoRepository:
         ).sort("inicio", -1).limit(limit)
         return list(cursor)
 
+    def get_all_attempts(self, student_id: str) -> list[dict]:
+        cursor = self._mongo.db.intentos.find(
+            {"estudiante.uid": student_id},
+            {"_id": 0},
+        ).sort("inicio", -1)
+        return list(cursor)
+
     def close_attempt(self, intento: Intento) -> None:
         datos = intento.model_dump(exclude={"uid", "estudiante", "id_sesion",
                                             "id_materia", "id_contenido",

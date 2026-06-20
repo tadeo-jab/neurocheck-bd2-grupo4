@@ -7,6 +7,7 @@ from src.model.collection_models import Actividad, CaminoAprendizaje, Estudiante
 from src.repository.mongo.curriculum_repository import CurriculumRepository
 from src.repository.mongo.estudiante_mdb_repository import EstudianteMDBRepository
 from src.repository.mongo.intento_repository import IntentoRepository
+from src.repository.mongo.evento_repository import EventoRepository
 from src.repository.neo4j.estudiante_repository import EstudianteRepository
 from src.repository.neo4j.materia_repository import MateriaRepository
 from src.repository.neo4j.materia_estudiante_repository import MateriaEstudianteRepository
@@ -22,6 +23,7 @@ class StudyService:
         self._estudiante_mdb_repo = EstudianteMDBRepository(mongo)
         self._curriculum_repo = CurriculumRepository(mongo)
         self._intento_repo = IntentoRepository(mongo)
+        self._evento_repo = EventoRepository(mongo)
         self._cache_sesion = SessionCacheRepository(redis_url)
         self._cache_intento = IntentoCacheRepository(redis_url)
 
@@ -51,6 +53,12 @@ class StudyService:
         if not recurso:
             raise ValueError(f"Recurso {id_recurso} no encontrado.")
         return recurso
+
+    def get_activity(self, id_actividad: str) -> Actividad:
+        actividad = self._curriculum_repo.get_activity(id_actividad)
+        if not actividad:
+            raise ValueError(f"Actividad {id_actividad} no encontrada.")
+        return actividad
 
     # ── Intento ───────────────────────────────────────────
 
@@ -84,6 +92,16 @@ class StudyService:
             self._cache_intento.iniciar_cronometro(
                 intento_id, id_contenido, user_id, duracion_total
             )
+
+        self._evento_repo.log_raw(
+            uid=uuid.uuid4().hex,
+            id_usuario=user_id,
+            nombre_usuario=estudiante.nombre,
+            id_sesion=sesion_id,
+            tipo_evento="inicio_intento",
+            id_materia=id_materia,
+            id_contenido=id_contenido,
+        )
 
         return {"intento_id": intento_id}
 
@@ -149,17 +167,34 @@ class StudyService:
         self._intento_repo.close_attempt(intento)
         self._cache_intento.detener_cronometro(actividad_id, user_id)
 
+        tipo_evento_cierre = "cierre_intento" if terminado else "abandono_actividad"
+        self._evento_repo.log_raw(
+            uid=uuid.uuid4().hex,
+            id_usuario=user_id,
+            nombre_usuario=doc["estudiante"]["nombre"],
+            id_sesion=doc["id_sesion"],
+            tipo_evento=tipo_evento_cierre,
+            id_materia=doc["id_materia"],
+            id_contenido=actividad_id,
+        )
+
         precuela = None
+        prereqs_completos = []
         warning = False
         if (not terminado or not aprobado) and self.warning_verdict(user_id):
             warning = True
             precuela = self._materia_repo.get_prequel_if_exists(doc["id_materia"])
+            prereqs_completos = self._materia_repo.get_all_prerequisites(doc["id_materia"])
 
         print(f"[close_attempt] intento={intento_id} materia={doc['id_materia']} "
               f"terminado={terminado} aprobado={aprobado} "
               f"warning={warning} precuela={precuela.id if precuela else None}")
 
-        return {"warning": warning, "precuela": precuela}
+        return {
+            "warning": warning,
+            "precuela": precuela,
+            "prerrequisitos_recomendados": prereqs_completos if warning else [],
+        }
 
     def warning_verdict(self, user_id: str) -> bool:
         attempts = self._intento_repo.get_last_attempts(user_id, self.limite_intentos)

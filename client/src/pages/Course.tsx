@@ -82,7 +82,9 @@ export default function Course() {
                 📄 {item.id}
               </Link>
             ) : (
-              <>📝 {item.id}</>
+              <Link to="/activity" state={{ id_contenido: item.id, id_materia: materia.id }}>
+                📝 {item.id}
+              </Link>
             )}
           </li>
         ))}

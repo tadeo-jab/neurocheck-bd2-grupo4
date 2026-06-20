@@ -62,6 +62,68 @@ class MateriaRepository:
                             properties(r) AS propiedades
         """
         return self._neo4j.read(query, id_materia=id_materia)
-    
+
+    # ── Consulta 5 — Prerrequisitos recursivos ──────────────
+
+    def get_all_prerequisites(self, id_materia: str) -> list[dict]:
+        """Devuelve todos los prerrequisitos (directos e indirectos) de una materia."""
+        query = """
+            MATCH path = (m:Materia {id: $id})-[:REQUIERE*1..]->(req:Materia)
+            RETURN DISTINCT req,
+                            length(path) AS profundidad
+            ORDER BY profundidad ASC
+        """
+        resultados = self._neo4j.read(query, id=id_materia)
+        return [
+            {**dict(r["req"]), "profundidad": r["profundidad"]}
+            for r in resultados
+        ]
+
+    # ── Consulta 6 — Ruta óptima de aprendizaje ────────────
+
+    def get_optimal_learning_path(self, id_estudiante: str,
+                                  id_materia_objetivo: str) -> list[dict]:
+        """
+        Devuelve la secuencia de materias que el estudiante debe cursar
+        para llegar al objetivo, excluyendo las que ya completó.
+        Ordena por profundidad (más lejanas primero = hay que cursarlas antes).
+        """
+        query = """
+            MATCH path = (objetivo:Materia {id: $id_objetivo})<-[:REQUIERE*0..]-(req:Materia)
+            WHERE NOT EXISTS {
+                MATCH (:Estudiante {id: $id_est})-[:ANOTADO_EN {completado: true}]->(req)
+            }
+            RETURN DISTINCT req,
+                            length(path) AS distancia
+            ORDER BY distancia DESC
+        """
+        resultados = self._neo4j.read(query,
+                                      id_objetivo=id_materia_objetivo,
+                                      id_est=id_estudiante)
+        return [
+            {**dict(r["req"]), "distancia_al_objetivo": r["distancia"]}
+            for r in resultados
+        ]
+
+    # ── Consulta 7 — Caminos alternativos ──────────────────
+
+    def get_alternative_paths(self, id_materia: str) -> list[dict]:
+        """Devuelve materias alternativas para llegar al mismo objetivo."""
+        query = """
+            MATCH (m:Materia {id: $id})-[r:ALTERNATIVA]->(alt:Materia)
+            RETURN alt,
+                   r.peso_adicional  AS costo_adicional,
+                   r.estilo_favorecido AS estilo_favorecido
+        """
+        resultados = self._neo4j.read(query, id=id_materia)
+        return [
+            {
+                **dict(r["alt"]),
+                "costo_adicional": r["costo_adicional"],
+                "estilo_favorecido": r["estilo_favorecido"],
+            }
+            for r in resultados
+        ]
+
 
 

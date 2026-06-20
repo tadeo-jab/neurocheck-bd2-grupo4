@@ -141,6 +141,16 @@ def _camino_estandar(nombre_materia: str) -> dict:
 # Seed functions
 # ═══════════════════════════════════════════════════════════
 
+def _crear_indices(db) -> None:
+    """Crea los índices de MongoDB declarados en Etapa 1."""
+    db.intentos.create_index([("estudiante.uid", 1), ("inicio", -1)])
+    db.sesiones.create_index([("estudiante.uid", 1), ("fecha_ini", -1)])
+    db.eventos_interaccion.create_index([("id_usuario", 1), ("timestamp", -1)])
+    db.eventos_interaccion.create_index([("tema", 1), ("tipo_evento", 1)])
+    db.curriculum.create_index([("id_materia", 1)], unique=True)
+    print("[Mongo] Índices creados ✓")
+
+
 def seed_mongo(mongo: MongoService) -> None:
     db = mongo.db
     print("[Mongo] Limpiando colecciones...")
@@ -148,6 +158,9 @@ def seed_mongo(mongo: MongoService) -> None:
     db.curriculum.delete_many({})
     db.recursos.delete_many({})
     db.actividades.delete_many({})
+    db.sesiones.delete_many({})
+    db.intentos.delete_many({})
+    db.eventos_interaccion.delete_many({})
 
     print("[Mongo] Insertando estudiantes...")
     for e in ESTUDIANTES:
@@ -202,7 +215,160 @@ def seed_mongo(mongo: MongoService) -> None:
             },
         })
 
+    _crear_indices(db)
+    _seed_sesiones_e_intentos(db)
+    _seed_eventos_interaccion(db)
     print("[Mongo] Seed completo ✓")
+
+
+def _seed_sesiones_e_intentos(db) -> None:
+    """Genera sesiones e intentos simulados para que analytics devuelva datos reales."""
+    from datetime import timedelta
+
+    ahora = datetime.now(timezone.utc)
+
+    # Mapa id → datos completos del estudiante (necesarios para que Sesion(**doc) no falle)
+    est_map = {e["id"]: e for e in ESTUDIANTES}
+
+    sesiones_data = [
+        {"uid": "ses-001", "est": "est-001", "delta_h": 24,  "dur_m": 45, "fatiga": 0.3},
+        {"uid": "ses-002", "est": "est-001", "delta_h": 48,  "dur_m": 30, "fatiga": 0.5},
+        {"uid": "ses-003", "est": "est-001", "delta_h": 72,  "dur_m": 60, "fatiga": 0.7},
+        {"uid": "ses-004", "est": "est-002", "delta_h": 12,  "dur_m": 50, "fatiga": 0.2},
+        {"uid": "ses-005", "est": "est-002", "delta_h": 36,  "dur_m": 40, "fatiga": 0.4},
+        {"uid": "ses-006", "est": "est-003", "delta_h": 6,   "dur_m": 25, "fatiga": 0.6},
+        {"uid": "ses-007", "est": "est-004", "delta_h": 20,  "dur_m": 35, "fatiga": 0.3},
+    ]
+
+    for s in sesiones_data:
+        e = est_map[s["est"]]
+        fecha_ini = ahora - timedelta(hours=s["delta_h"])
+        fecha_fin = fecha_ini + timedelta(minutes=s["dur_m"])
+        db.sesiones.insert_one({
+            "uid": s["uid"],
+            "estudiante": {
+                "uid": e["id"],
+                "nombre": e["nombre"],
+                "email": e["email"],
+                "estilo_preferido": e["estilo"],
+                "password_hash": "",   # no se usa en analytics
+            },
+            "fecha_ini": fecha_ini,
+            "fecha_fin": fecha_fin,
+            "intentos_estudio": [],
+            "fatiga_estimada": s["fatiga"],
+        })
+
+    intentos_data = [
+        # est-001 tiene 4 intentos malos en mat-prog (activa el warning)
+        {"uid": "int-001", "est": "est-001", "nom": "Juan Pérez", "ses": "ses-001",
+         "mat": "mat-prog", "cont": "act-py01", "tipo": "actividad",
+         "aprobado": False, "terminado": True,  "dur": 300, "aciertos": 2, "errores": 8},
+        {"uid": "int-002", "est": "est-001", "nom": "Juan Pérez", "ses": "ses-002",
+         "mat": "mat-prog", "cont": "act-py01", "tipo": "actividad",
+         "aprobado": False, "terminado": True,  "dur": 280, "aciertos": 3, "errores": 7},
+        {"uid": "int-003", "est": "est-001", "nom": "Juan Pérez", "ses": "ses-002",
+         "mat": "mat-prog", "cont": "act-py01", "tipo": "actividad",
+         "aprobado": False, "terminado": False, "dur": 120, "aciertos": 0, "errores": 0},
+        {"uid": "int-004", "est": "est-001", "nom": "Juan Pérez", "ses": "ses-003",
+         "mat": "mat-prog", "cont": "act-py01", "tipo": "actividad",
+         "aprobado": False, "terminado": True,  "dur": 310, "aciertos": 1, "errores": 9},
+        # est-002 tiene buenos resultados
+        {"uid": "int-005", "est": "est-002", "nom": "María Gómez", "ses": "ses-004",
+         "mat": "mat-bdrel", "cont": "act-bd01", "tipo": "actividad",
+         "aprobado": True,  "terminado": True,  "dur": 600, "aciertos": 9, "errores": 1},
+        {"uid": "int-006", "est": "est-002", "nom": "María Gómez", "ses": "ses-005",
+         "mat": "mat-bdrel", "cont": "act-sql01", "tipo": "actividad",
+         "aprobado": True,  "terminado": True,  "dur": 450, "aciertos": 8, "errores": 2},
+        # est-003
+        {"uid": "int-007", "est": "est-003", "nom": "Pedro Ruiz", "ses": "ses-006",
+         "mat": "mat-viz",  "cont": "act-viz01", "tipo": "actividad",
+         "aprobado": False, "terminado": False, "dur": 100, "aciertos": 0, "errores": 0},
+        # est-004
+        {"uid": "int-008", "est": "est-004", "nom": "Ana López", "ses": "ses-007",
+         "mat": "mat-ml",   "cont": "act-ml01", "tipo": "actividad",
+         "aprobado": True,  "terminado": True,  "dur": 900, "aciertos": 10, "errores": 0},
+    ]
+
+    ahora = datetime.now(timezone.utc)
+    for i in intentos_data:
+        e = est_map[i["est"]]
+        db.intentos.insert_one({
+            "uid": i["uid"],
+            "estudiante": {
+                "uid": e["id"],
+                "nombre": e["nombre"],
+                "email": e["email"],
+                "estilo_preferido": e["estilo"],
+                "password_hash": "",
+            },
+            "id_sesion": i["ses"],
+            "id_materia": i["mat"],
+            "id_contenido": i["cont"],
+            "tipo_contenido": i["tipo"],
+            "inicio": ahora - timedelta(minutes=i["dur"] + 10),
+            "fin": ahora - timedelta(minutes=10),
+            "duracion_segundos": i["dur"],
+            "pausas": 0,
+            "duracion_pausa_segundos": 0,
+            "terminado": i["terminado"],
+            "aprobado": i["aprobado"],
+            "aciertos": i["aciertos"],
+            "errores": i["errores"],
+            "puntaje": i["aciertos"] * 10.0,
+        })
+
+    print("[Mongo] Sesiones e intentos simulados ✓")
+
+
+def _seed_eventos_interaccion(db) -> None:
+    """Genera ~20 EventoInteraccion para demostrar Consultas 3 y 4."""
+    from datetime import timedelta
+
+    ahora = datetime.now(timezone.utc)
+
+    eventos = [
+        # est-001 — múltiples fallos en mat-prog
+        ("ev-01", "est-001", "Juan Pérez",  "ses-001", "inicio_intento",    "mat-prog",    "act-py01",  20),
+        ("ev-02", "est-001", "Juan Pérez",  "ses-001", "cierre_intento",    "mat-prog",    "act-py01",  19),
+        ("ev-03", "est-001", "Juan Pérez",  "ses-002", "inicio_intento",    "mat-prog",    "act-py01",  18),
+        ("ev-04", "est-001", "Juan Pérez",  "ses-002", "abandono_actividad","mat-prog",    "act-py01",  17),
+        ("ev-05", "est-001", "Juan Pérez",  "ses-002", "inicio_intento",    "mat-prog",    "act-py01",  16),
+        ("ev-06", "est-001", "Juan Pérez",  "ses-002", "cierre_intento",    "mat-prog",    "act-py01",  15),
+        ("ev-07", "est-001", "Juan Pérez",  "ses-003", "inicio_intento",    "mat-prog",    "act-py01",  14),
+        ("ev-08", "est-001", "Juan Pérez",  "ses-003", "cierre_intento",    "mat-prog",    "act-py01",  13),
+        # est-001 — también accede a recursos
+        ("ev-09", "est-001", "Juan Pérez",  "ses-001", "acceso_recurso",    "mat-prog",    "rec-py01",  22),
+        # est-002 — aprendizaje fluido
+        ("ev-10", "est-002", "María Gómez", "ses-004", "inicio_intento",    "mat-bdrel",   "act-bd01",  10),
+        ("ev-11", "est-002", "María Gómez", "ses-004", "cierre_intento",    "mat-bdrel",   "act-bd01",   9),
+        ("ev-12", "est-002", "María Gómez", "ses-004", "acceso_recurso",    "mat-bdrel",   "rec-bd01",  11),
+        ("ev-13", "est-002", "María Gómez", "ses-005", "inicio_intento",    "mat-bdrel",   "act-sql01",  5),
+        ("ev-14", "est-002", "María Gómez", "ses-005", "cierre_intento",    "mat-bdrel",   "act-sql01",  4),
+        # est-003 — abandono
+        ("ev-15", "est-003", "Pedro Ruiz",  "ses-006", "inicio_intento",    "mat-viz",     "act-viz01",  3),
+        ("ev-16", "est-003", "Pedro Ruiz",  "ses-006", "abandono_actividad","mat-viz",     "act-viz01",  2),
+        # est-004 — aprendizaje exitoso
+        ("ev-17", "est-004", "Ana López",   "ses-007", "acceso_recurso",    "mat-ml",      "rec-ml01",  12),
+        ("ev-18", "est-004", "Ana López",   "ses-007", "inicio_intento",    "mat-ml",      "act-ml01",   8),
+        ("ev-19", "est-004", "Ana López",   "ses-007", "cierre_intento",    "mat-ml",      "act-ml01",   7),
+        ("ev-20", "est-001", "Juan Pérez",  "ses-001", "acceso_recurso",    "mat-fund",    "rec-sql01",  30),
+    ]
+
+    for uid, id_est, nombre, id_ses, tipo, mat, cont, min_ago in eventos:
+        db.eventos_interaccion.insert_one({
+            "uid": uid,
+            "id_usuario": id_est,
+            "nombre_usuario": nombre,
+            "id_sesion": id_ses,
+            "tipo_evento": tipo,
+            "timestamp": ahora - timedelta(minutes=min_ago),
+            "id_materia": mat,
+            "id_contenido": cont,
+            "tema": mat,
+        })
+
+    print("[Mongo] EventoInteraccion simulados ✓")
 
 
 def seed_neo4j(neo4j: Neo4jService) -> None:

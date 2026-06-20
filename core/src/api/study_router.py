@@ -31,6 +31,12 @@ def get_course(id_materia: str, id_estudiante: str,
     return service.get_subject_course(id_estudiante, id_materia)
 
 
+@router.get("/activity/{id_actividad}")
+def get_activity(id_actividad: str,
+                 service: StudyService = Depends(get_study_service)):
+    return service.get_activity(id_actividad)
+
+
 @router.get("/resource/{id_recurso}/file")
 def get_resource_file(id_recurso: str,
                       service: StudyService = Depends(get_study_service)):
