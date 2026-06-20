@@ -9,33 +9,25 @@ from src.db.neo4j import Neo4jService
 from src.repository.mongo.estudiante_mdb_repository import EstudianteMDBRepository
 from src.repository.mongo.sesion_repository import SesionRepository
 from src.repository.neo4j.estudiante_repository import EstudianteRepository
-from src.repository.redis.sesion_cache import SessionCacheRepository
 from src.model.collection_models import Estudiante, Sesion
 
 
 class AuthService:
-    def __init__(self, neo4j: Neo4jService, mongo: MongoService, redis_url: str):
+    def __init__(self, neo4j: Neo4jService, mongo: MongoService):
         self._estudiante_repo = EstudianteRepository(neo4j)
         self._estudiante_mdb_repo = EstudianteMDBRepository(mongo)
         self._sesion_repo = SesionRepository(mongo)
-        self._cache = SessionCacheRepository(redis_url)
 
     # ── Login ──────────────────────────────────────────────
 
     def login(self, email: str, password: str, ip: str = "") -> dict:
-        if self._cache.intentos_restantes(email) == 0:
-            raise ValueError("Demasiados intentos. Intente más tarde.")
-
         estudiante = self._estudiante_mdb_repo.find_by_email(email)
         print(f"[auth_service] find_by_email({email!r}) → encontrado={estudiante is not None}")
         if not estudiante or not bcrypt.checkpw(
             password.encode(), estudiante.password_hash.encode()
         ):
             print(f"[auth_service] bcrypt check failed, raising 'Credenciales inválidas'")
-            self._cache.incrementar_intento(email)
             raise ValueError("Credenciales inválidas.")
-
-        self._cache._redis.delete(f"sesiones:intentos:{email}")
 
         token = secrets.token_hex(32)
         sesion_id = uuid.uuid4().hex
@@ -48,19 +40,9 @@ class AuthService:
             token=token,
         ))
 
-        self._cache.crear_sesion(token, {
-            "user_id": estudiante.uid,
-            "sesion_id": sesion_id,
-            "email": estudiante.email,
-            "rol": "estudiante",
-            "nombre": estudiante.nombre,
-            "creado": datetime.now(timezone.utc).isoformat(),
-            "ip": ip,
-        })
-        self._cache.vincular_usuario(estudiante.uid, token)
-
         return {
             "token": token,
+            "sesion_id": sesion_id,
             "user": {
                 "id": estudiante.uid,
                 "nombre": estudiante.nombre,
@@ -96,14 +78,13 @@ class AuthService:
     def validar_sesion(self, token: str | None) -> dict:
         if not token:
             raise ValueError("Token requerido.")
-        datos = self._cache.validar_sesion(token)
-        if not datos:
+        doc = self._sesion_repo.find_by_token(token)
+        if not doc:
             raise ValueError("Sesión expirada o inválida.")
-        return datos
+        return doc
 
     def logout(self, token: str) -> None:
-        datos = self._cache.validar_sesion(token)
-        if not datos:
+        doc = self._sesion_repo.find_by_token(token)
+        if not doc:
             return
-        self._sesion_repo.end_session(datos["sesion_id"])
-        self._cache.cerrar_sesion(token, datos["user_id"])
+        self._sesion_repo.end_session(doc["uid"])

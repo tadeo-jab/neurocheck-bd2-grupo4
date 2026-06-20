@@ -37,6 +37,7 @@ export default function Subject() {
         id_estudiante: user.id,
         id_materia: materia.id,
         estilo_preferido: estilo,
+        sesion_id: localStorage.getItem('sesion_id') ?? '',
       }),
     }).then((res) => {
       if (res.ok) {

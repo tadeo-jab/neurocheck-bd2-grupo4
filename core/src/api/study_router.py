@@ -17,18 +17,16 @@ class StartAttemptBody(BaseModel):
 
 class CloseAttemptBody(BaseModel):
     terminado: bool
-    aprobado: bool
     auto_percepcion: int | None = None
-    aciertos: int | None = None
-    errores: int | None = None
-    puntaje: float | None = None
+    respuestas: dict[str, int] | None = None
 
 # ── Endpoints ───────────────────────────────────────────
 
 @router.get("/course/{id_materia}/{id_estudiante}")
 def get_course(id_materia: str, id_estudiante: str,
                service: StudyService = Depends(get_study_service)):
-    return service.get_subject_course(id_estudiante, id_materia)
+    camino, progress = service.get_subject_course(id_estudiante, id_materia)
+    return {"camino": camino, "progreso": progress}
 
 
 @router.get("/resource/{id_recurso}/file")
@@ -40,6 +38,12 @@ def get_resource_file(id_recurso: str,
         media_type=recurso.mime_type or "application/octet-stream",
         headers={"Content-Disposition": f'inline; filename="{recurso.nombre_archivo}"'},
     )
+
+
+@router.get("/activity/{id_actividad}")
+def get_activity(id_actividad: str,
+                 service: StudyService = Depends(get_study_service)):
+    return service.get_activity(id_actividad)
 
 
 @router.post("/attempt/start")
@@ -65,4 +69,6 @@ def resume(intento_id: str, service: StudyService = Depends(get_study_service)):
 def close(intento_id: str, body: CloseAttemptBody,
           service: StudyService = Depends(get_study_service)):
     result = service.close_attempt(intento_id, **body.model_dump(exclude_none=True))
-    return {"ok": True, "warning": result["warning"], "precuela": result["precuela"]}
+    return {"ok": True, "warning": result["warning"], "precuela": result["precuela"],
+            "aprobado": result["aprobado"], "puntaje": result["puntaje"],
+            "curso_aprobado": result["curso_aprobado"]}

@@ -20,15 +20,13 @@ interface Arista {
 
 interface Estado {
   id: string
-  estado: 'no_cursada' | 'aprobada' | 'reprobada' | 'cursando' | 'completada'
+  estado: 'no_cursada' | 'aprobada' | 'cursando'
 }
 
 const ESTADO_COLOR: Record<string, string> = {
   no_cursada: '#1976d2',
   aprobada: '#388e3c',
-  reprobada: '#d32f2f',
   cursando: '#7b1fa2',
-  completada: '#888',
 }
 
 export default function Tree() {

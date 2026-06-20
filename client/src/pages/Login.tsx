@@ -28,6 +28,7 @@ export default function Login() {
 
     const data = await res.json()
     localStorage.setItem('token', data.token)
+    localStorage.setItem('sesion_id', data.sesion_id)
     localStorage.setItem('user', JSON.stringify(data.user))
     navigate('/')
   }

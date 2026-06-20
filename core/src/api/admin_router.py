@@ -16,3 +16,9 @@ def get_sessions(id_estudiante: str,
 def get_attempts(id_sesion: str,
                  service: AdminService = Depends(get_admin_service)):
     return service.get_intentos_by_sesion(id_sesion)
+
+
+@router.get("/events/{id_estudiante}")
+def get_events(id_estudiante: str,
+               service: AdminService = Depends(get_admin_service)):
+    return service.get_events(id_estudiante)

@@ -79,6 +79,35 @@ export default function Landing() {
           ))}
         </ul>
       </main>
+      <button
+        onClick={() => {
+          const token = localStorage.getItem('token')
+          fetch('/api/auth/logout', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+          }).finally(() => {
+            localStorage.clear()
+            navigate('/login')
+          })
+        }}
+        style={{
+          position: 'fixed',
+          top: 24,
+          right: 24,
+          padding: '10px 20px',
+          background: '#757575',
+          color: 'white',
+          border: 'none',
+          borderRadius: 8,
+          cursor: 'pointer',
+          fontWeight: 'bold',
+        }}
+      >
+        Cerrar sesión
+      </button>
       <Link
         to="/tree"
         style={{

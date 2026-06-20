@@ -20,10 +20,11 @@ export default function MatesSearch() {
   }, [user.id])
 
   const handleRequest = (mateId: string) => {
+    const sesionId = localStorage.getItem('sesion_id')
     fetch('/api/mates/request', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ student_id_a: user.id, student_id_b: mateId }),
+      body: JSON.stringify({ student_id_a: user.id, student_id_b: mateId, sesion_id: sesionId }),
     }).then((res) => {
       if (res.ok) setRequested((prev) => new Set(prev).add(mateId))
     })

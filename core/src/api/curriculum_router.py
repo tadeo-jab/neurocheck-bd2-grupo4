@@ -12,12 +12,14 @@ class EnrollBody(BaseModel):
     id_estudiante: str
     id_materia: str
     estilo_preferido: str
+    sesion_id: str
 
 class SwitchEnrollBody(BaseModel):
     id_estudiante: str
     id_materia_old: str
     id_materia_new: str
     estilo_aprendizaje: str
+    sesion_id: str
 
 # ── Endpoints ───────────────────────────────────────────
 
@@ -42,7 +44,8 @@ def get_subject_tree(id_materia: str, id_estudiante: str,
 @router.post("/enroll")
 def enroll(body: EnrollBody,
            service: CurriculumService = Depends(get_curriculum_service)):
-    service.enroll_student(body.id_estudiante, body.id_materia, body.estilo_preferido)
+    service.enroll_student(body.id_estudiante, body.id_materia,
+                            body.estilo_preferido, body.sesion_id)
     return {"ok": True}
 
 
@@ -50,5 +53,6 @@ def enroll(body: EnrollBody,
 def switch_enrollment(body: SwitchEnrollBody,
                       service: CurriculumService = Depends(get_curriculum_service)):
     service.switch_enrollment(body.id_estudiante, body.id_materia_old,
-                              body.id_materia_new, body.estilo_aprendizaje)
+                              body.id_materia_new, body.estilo_aprendizaje,
+                              body.sesion_id)
     return {"ok": True}

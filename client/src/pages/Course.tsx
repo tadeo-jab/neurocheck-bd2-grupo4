@@ -23,6 +23,7 @@ export default function Course() {
   const user = JSON.parse(localStorage.getItem('user') ?? '{}')
 
   const [camino, setCamino] = useState<CaminoAprendizaje | null>(null)
+  const [progreso, setProgreso] = useState<Record<number, boolean>>({})
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -35,7 +36,10 @@ export default function Course() {
         }
         return res.json()
       })
-      .then((data) => setCamino(data))
+      .then((data) => {
+        setCamino(data.camino)
+        setProgreso(data.progreso)
+      })
       .catch((err) => setError(err.message))
   }, [materia, user.id])
 
@@ -75,14 +79,21 @@ export default function Course() {
       {camino.descripcion && <p>{camino.descripcion}</p>}
       <h2>Contenidos</h2>
       <ol>
-        {camino.secuencia.map((item) => (
-          <li key={item.id} style={{ marginBottom: 8 }}>
+        {camino.secuencia.map((item, i) => (
+          <li key={item.id} style={{
+            marginBottom: 8,
+            background: progreso[i] ? '#d4edda' : undefined,
+            padding: 4,
+            borderRadius: 4,
+          }}>
             {item.tipo === 'recurso' ? (
               <Link to="/resource" state={{ id_contenido: item.id, id_materia: materia.id }}>
                 📄 {item.id}
               </Link>
             ) : (
-              <>📝 {item.id}</>
+              <Link to="/activity" state={{ id_contenido: item.id, id_materia: materia.id }}>
+                📝 {item.id}
+              </Link>
             )}
           </li>
         ))}

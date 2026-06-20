@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import Activity from './pages/Activity'
 import Admin from './pages/Admin'
 import Course from './pages/Course'
 import Landing from './pages/Landing'
@@ -13,6 +14,7 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
+      <Route path="/activity" element={<Activity />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/login" element={<Login />} />
       <Route path="/mates-search" element={<MatesSearch />} />

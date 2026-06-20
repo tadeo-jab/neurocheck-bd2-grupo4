@@ -35,6 +35,11 @@ class SesionRepository:
             return []
         return [Intento(**i) for i in doc["intentos_estudio"]]
 
+    def find_by_uid(self, uid: str) -> Sesion | None:
+        doc = self._mongo.db.sesiones.find_one({"uid": uid})
+        print(f"[Mongo] db.sesiones.find_one({{'uid': {uid}}})")
+        return Sesion(**doc) if doc else None
+
     def find_by_token(self, token: str) -> dict | None:
         filtro = {"token": token}
         doc = self._mongo.db.sesiones.find_one(filtro)

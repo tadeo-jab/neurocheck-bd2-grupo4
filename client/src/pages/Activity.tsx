@@ -1,9 +1,26 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 
-interface ResourceState {
+interface ActivityState {
   id_contenido: string
   id_materia: string
+}
+
+interface Pregunta {
+  uid: string
+  texto: string
+  opciones: string[]
+  respuesta_correcta: number
+  puntaje: number
+}
+
+interface Actividad {
+  uid: string
+  nombre: string
+  tipo: string
+  preguntas: Pregunta[]
+  dificultad: number
+  puntaje_maximo: number
 }
 
 interface Precuela {
@@ -19,26 +36,31 @@ interface CloseResult {
   ok: boolean
   warning: boolean
   precuela: Precuela | null
+  aprobado: boolean
+  puntaje: number | null
   curso_aprobado: boolean
 }
 
 const ESTILOS = ['visual', 'auditivo', 'kinestésico', 'textual']
 
-export default function Resource() {
+export default function Activity() {
   const { state } = useLocation()
-  const data = state as ResourceState | null
+  const data = state as ActivityState | null
   const token = localStorage.getItem('token') ?? ''
   const user = JSON.parse(localStorage.getItem('user') ?? '{}')
 
   const navigate = useNavigate()
 
   const [intentoId, setIntentoId] = useState('')
-  const [fileName, setFileName] = useState('')
+  const [actividad, setActividad] = useState<Actividad | null>(null)
+  const [respuestas, setRespuestas] = useState<Record<string, number>>({})
   const [paused, setPaused] = useState(false)
   const [error, setError] = useState('')
 
-  // Warning / switch flow
+  const [closeResult, setCloseResult] = useState<CloseResult | null>(null)
+  const [showFeedback, setShowFeedback] = useState(false)
   const [showCourseDone, setShowCourseDone] = useState(false)
+
   const [showWarning, setShowWarning] = useState(false)
   const [precuela, setPrecuela] = useState<Precuela | null>(null)
 
@@ -54,8 +76,8 @@ export default function Resource() {
       body: JSON.stringify({
         id_materia: data.id_materia,
         id_contenido: data.id_contenido,
-        tipo_contenido: 'recurso',
-        duracion_total: 30,
+        tipo_contenido: 'actividad',
+        duracion_total: 0,
       }),
     })
       .then(async (res) => {
@@ -67,17 +89,16 @@ export default function Resource() {
       })
       .then((json) => {
         setIntentoId(json.intento_id)
-        return fetch(`/api/study/resource/${data.id_contenido}/file`)
+        return fetch(`/api/study/activity/${data.id_contenido}`)
       })
       .then(async (res) => {
         if (!res.ok) {
           const msg = await res.text()
           throw new Error(msg || res.statusText)
         }
-        const disposition = res.headers.get('Content-Disposition') ?? ''
-        const match = disposition.match(/filename="?([^"]+)"?/)
-        setFileName(match ? match[1] : data.id_contenido)
+        return res.json()
       })
+      .then((act) => setActividad(act))
       .catch((err) => setError(err.message))
   }, [data, token])
 
@@ -94,6 +115,10 @@ export default function Resource() {
       .catch((err) => setError(err.message))
   }
 
+  const handleResponse = (preguntaId: string, opcionIdx: number) => {
+    setRespuestas((prev) => ({ ...prev, [preguntaId]: opcionIdx }))
+  }
+
   const handleClose = () => {
     fetch(`/api/study/attempt/${intentoId}/close`, {
       method: 'POST',
@@ -101,30 +126,36 @@ export default function Resource() {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ terminado: true }),
+      body: JSON.stringify({ terminado: true, respuestas }),
     })
       .then(async (res) => {
         if (!res.ok) throw new Error(await res.text())
         return res.json() as Promise<CloseResult>
       })
       .then((result) => {
+        setCloseResult(result)
         if (result.warning) {
           setPrecuela(result.precuela)
         }
-        if (result.curso_aprobado) {
-          setShowCourseDone(true)
-        } else if (result.warning) {
-          setShowWarning(true)
-        } else {
-          navigate(-1)
-        }
+        setShowFeedback(true)
       })
       .catch((err) => setError(err.message))
   }
 
+  const dismissFeedback = () => {
+    setShowFeedback(false)
+    if (closeResult?.curso_aprobado) {
+      setShowCourseDone(true)
+    } else if (closeResult?.warning) {
+      setShowWarning(true)
+    } else {
+      navigate(-1)
+    }
+  }
+
   const dismissCourseDone = () => {
     setShowCourseDone(false)
-    if (precuela) {
+    if (closeResult?.warning) {
       setShowWarning(true)
     } else {
       navigate(-1)
@@ -178,7 +209,7 @@ export default function Resource() {
     return (
       <div style={{ padding: 24 }}>
         <Link to="/">← Volver</Link>
-        <p>Recurso no encontrado</p>
+        <p>Actividad no encontrada</p>
       </div>
     )
   }
@@ -187,17 +218,17 @@ export default function Resource() {
     return (
       <div style={{ padding: 24 }}>
         <Link to="/">← Volver a Mis cursos</Link>
-        <h1>Recurso</h1>
+        <h1>Actividad</h1>
         <p style={{ color: 'red' }}>Error: {error}</p>
       </div>
     )
   }
 
-  if (!fileName) {
+  if (!actividad) {
     return (
       <div style={{ padding: 24 }}>
         <Link to="/">← Volver a Mis cursos</Link>
-        <h1>Recurso</h1>
+        <h1>Actividad</h1>
         <p>Cargando...</p>
       </div>
     )
@@ -206,7 +237,12 @@ export default function Resource() {
   return (
     <div style={{ padding: 24 }}>
       <Link to="/">← Volver a Mis cursos</Link>
-      <h1>{fileName}</h1>
+      <h1>{actividad.nombre}</h1>
+      <p>
+        Tipo: {actividad.tipo} | Dificultad: {actividad.dificultad} | Puntaje
+        máximo: {actividad.puntaje_maximo}
+      </p>
+
       <div style={{ position: 'fixed', top: 16, right: 16, display: 'flex', gap: 8 }}>
         <button
           onClick={handleAbandon}
@@ -237,11 +273,55 @@ export default function Resource() {
           {paused ? '▶ Reanudar' : '⏸ Pausar'}
         </button>
       </div>
-      <embed
-        src={`/api/study/resource/${data.id_contenido}/file`}
-        type="application/pdf"
-        style={{ width: '100%', height: '80vh', marginTop: 16 }}
-      />
+
+      {actividad.preguntas.length > 0 && (
+        <div style={{ maxWidth: 600, margin: '0 auto' }}>
+          {actividad.preguntas.map((p) => (
+            <div key={p.uid} style={{ marginBottom: 24 }}>
+              <p style={{ fontWeight: 'bold' }}>{p.texto}</p>
+              {p.opciones.map((opcion, idx) => (
+                <label
+                  key={idx}
+                  style={{
+                    display: 'block',
+                    padding: '8px 12px',
+                    marginBottom: 4,
+                    background: respuestas[p.uid] === idx ? '#e3f2fd' : '#f5f5f5',
+                    borderRadius: 6,
+                    cursor: 'pointer',
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={p.uid}
+                    value={idx}
+                    checked={respuestas[p.uid] === idx}
+                    onChange={() => handleResponse(p.uid, idx)}
+                    style={{ marginRight: 8 }}
+                  />
+                  {opcion}
+                </label>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {actividad.tipo === 'proyecto' && (
+        <div style={{ maxWidth: 600, margin: '24px auto' }}>
+          <label style={{ display: 'block', marginBottom: 8, fontWeight: 'bold' }}>
+            Auto-percepción (1-5)
+          </label>
+          <input
+            type="range"
+            min="1"
+            max="5"
+            defaultValue="3"
+            style={{ width: '100%' }}
+          />
+        </div>
+      )}
+
       <div style={{ textAlign: 'center', marginTop: 24 }}>
         <button
           onClick={handleClose}
@@ -285,6 +365,51 @@ export default function Resource() {
             <p>Completaste todos los contenidos de esta materia.</p>
             <button
               onClick={dismissCourseDone}
+              style={{
+                marginTop: 16,
+                padding: '8px 24px',
+                background: '#1976d2',
+                color: 'white',
+                border: 'none',
+                borderRadius: 8,
+                cursor: 'pointer',
+              }}
+            >
+              Continuar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Feedback popup */}
+      {showFeedback && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              padding: 32,
+              borderRadius: 12,
+              maxWidth: 400,
+              textAlign: 'center',
+            }}
+          >
+            <h2 style={{ marginTop: 0, color: closeResult?.aprobado ? '#2e7d32' : '#c62828' }}>
+              {closeResult?.aprobado ? 'Aprobado' : 'No aprobado'}
+            </h2>
+            {closeResult?.puntaje !== null && closeResult?.puntaje !== undefined && (
+              <p>Puntaje: <strong>{closeResult.puntaje}</strong></p>
+            )}
+            <button
+              onClick={dismissFeedback}
               style={{
                 marginTop: 16,
                 padding: '8px 24px',

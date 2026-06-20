@@ -11,6 +11,7 @@ router = APIRouter(prefix="/mates", tags=["mates"])
 class MateRequestBody(BaseModel):
     student_id_a: str
     student_id_b: str
+    sesion_id: str
 
 # ── Endpoints ───────────────────────────────────────────
 
@@ -29,5 +30,6 @@ def suggested(id_estudiante: str,
 @router.post("/request")
 def send_request(body: MateRequestBody,
                  service: MatesService = Depends(get_mates_service)):
-    service.send_mate_request(body.student_id_a, body.student_id_b)
+    service.send_mate_request(body.student_id_a, body.student_id_b,
+                              body.sesion_id)
     return {"ok": True}

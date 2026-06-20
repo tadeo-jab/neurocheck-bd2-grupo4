@@ -11,7 +11,7 @@ class MateriaEstudianteRepository:
     def get_student_nodes_status(self, id_estudiante: str) -> list[dict]:
         query = """
             MATCH (m:Materia)
-            OPTIONAL MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN|COMPLETO]->(m)
+            OPTIONAL MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m)
             RETURN m.id AS id,
                    m.nombre AS nombre,
                    m.descripcion AS descripcion,
@@ -20,10 +20,8 @@ class MateriaEstudianteRepository:
                    m.frecuencia_uso AS frecuencia_uso,
                    CASE
                      WHEN rel IS NULL THEN 'no_cursada'
-                     WHEN rel.aprobado = true THEN 'aprobada'
-                     WHEN rel.aprobado = false THEN 'reprobada'
-                     WHEN rel.fecha_fin IS NULL THEN 'cursando'
-                     ELSE 'completada'
+                     WHEN rel.completado = true THEN 'aprobada'
+                     ELSE 'cursando'
                    END AS estado
         """
         params = {"id_estudiante": id_estudiante}
@@ -73,3 +71,59 @@ class MateriaEstudianteRepository:
         print(f"[Neo4j] READ {query.strip()}\n       params={params}")
         resultados = self._neo4j.read(query, **params)
         return resultados[0]["estilo"] if resultados else None
+
+    def set_studied(self, id_estudiante: str, id_recurso: str, completado: bool) -> None:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante}), (r:Recurso {id: $id_recurso})
+            CREATE (e)-[:ESTUDIO {
+                completado: $completado,
+                intentos: 1
+            }]->(r)
+        """
+        params = {"id_estudiante": id_estudiante, "id_recurso": id_recurso, "completado": completado}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
+
+    def set_completed(self, id_estudiante: str, id_actividad: str,
+                      aprobado: bool, puntaje: float) -> None:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante}), (a:Actividad {id: $id_actividad})
+            CREATE (e)-[:COMPLETO {
+                aprobado: $aprobado,
+                puntaje: $puntaje,
+                intentos: 1
+            }]->(a)
+        """
+        params = {"id_estudiante": id_estudiante, "id_actividad": id_actividad,
+                  "aprobado": aprobado, "puntaje": puntaje}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
+
+    def set_enrollment_completed(self, id_estudiante: str, id_materia: str) -> None:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia {id: $id_materia})
+            SET rel.completado = true, rel.fecha_fin = datetime()
+        """
+        params = {"id_estudiante": id_estudiante, "id_materia": id_materia}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
+
+    def is_terminado(self, id_estudiante: str, id_recurso: str) -> bool:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:ESTUDIO]->(r:Recurso {id: $id_recurso})
+            RETURN rel.completado AS completado
+        """
+        params = {"id_estudiante": id_estudiante, "id_recurso": id_recurso}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
+        return resultados[0]["completado"] if resultados else False
+
+    def is_aprobado(self, id_estudiante: str, id_actividad: str) -> bool:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:COMPLETO]->(a:Actividad {id: $id_actividad})
+            RETURN rel.aprobado AS aprobado
+        """
+        params = {"id_estudiante": id_estudiante, "id_actividad": id_actividad}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
+        return resultados[0]["aprobado"] if resultados else False
