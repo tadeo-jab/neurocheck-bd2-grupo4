@@ -27,9 +27,11 @@ class AuthService:
             raise ValueError("Demasiados intentos. Intente más tarde.")
 
         estudiante = self._estudiante_mdb_repo.find_by_email(email)
+        print(f"[auth_service] find_by_email({email!r}) → encontrado={estudiante is not None}")
         if not estudiante or not bcrypt.checkpw(
             password.encode(), estudiante.password_hash.encode()
         ):
+            print(f"[auth_service] bcrypt check failed, raising 'Credenciales inválidas'")
             self._cache.incrementar_intento(email)
             raise ValueError("Credenciales inválidas.")
 
@@ -43,6 +45,7 @@ class AuthService:
             estudiante=estudiante,
             fecha_ini=datetime.now(timezone.utc),
             fatiga_estimada=0.0,
+            token=token,
         ))
 
         self._cache.crear_sesion(token, {

@@ -17,7 +17,9 @@ class EstudianteRepository:
                    COUNT(*) AS estudios_compartidos
             ORDER BY estudios_compartidos DESC
         """
-        resultados = self._neo4j.read(query, id=id)
+        params = {"id": id}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return [
             {"estudiante": Estudiante(**r["compañero"]), "aceptado": r["aceptado"]}
             for r in resultados
@@ -31,18 +33,24 @@ class EstudianteRepository:
                 estilo_preferido: $estilo_preferido
             })
         """
-        self._neo4j.write(query, id=id, nombre=nombre, estilo_preferido=estilo_preferido)
+        params = {"id": id, "nombre": nombre, "estilo_preferido": estilo_preferido}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
 
     def exists_by_id(self, id: str) -> bool:
         query = "MATCH (e:Estudiante {id: $id}) RETURN COUNT(e) > 0 AS existe"
-        return self._neo4j.read(query, id=id)[0]["existe"]
+        params = {"id": id}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        return self._neo4j.read(query, **params)[0]["existe"]
 
     def request_mate(self, id_a: str, id_b: str) -> None:
         query = """
             MATCH (a:Estudiante {id: $id_a}), (b:Estudiante {id: $id_b})
             MERGE (a)-[:COMPAÑERO_DE {solicitud_aceptada: false}]-(b)
         """
-        self._neo4j.write(query, id_a=id_a, id_b=id_b)
+        params = {"id_a": id_a, "id_b": id_b}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
 
     def recommend_mates(self, id: str, limite: int = 10) -> list[dict]:
         query = """
@@ -75,4 +83,6 @@ class EstudianteRepository:
             ORDER BY puntaje DESC
             LIMIT $limite
         """
-        return self._neo4j.read(query, id=id, limite=limite)
+        params = {"id": id, "limite": limite}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        return self._neo4j.read(query, **params)

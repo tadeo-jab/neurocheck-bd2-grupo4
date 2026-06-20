@@ -7,23 +7,21 @@ from src.model.collection_models import Actividad, CaminoAprendizaje, Estudiante
 from src.repository.mongo.curriculum_repository import CurriculumRepository
 from src.repository.mongo.estudiante_mdb_repository import EstudianteMDBRepository
 from src.repository.mongo.intento_repository import IntentoRepository
+from src.repository.mongo.sesion_repository import SesionRepository
 from src.repository.neo4j.estudiante_repository import EstudianteRepository
 from src.repository.neo4j.materia_repository import MateriaRepository
 from src.repository.neo4j.materia_estudiante_repository import MateriaEstudianteRepository
-from src.repository.redis.intento_cache import IntentoCacheRepository
-from src.repository.redis.sesion_cache import SessionCacheRepository
 
 
 class StudyService:
-    def __init__(self, neo4j: Neo4jService, mongo: MongoService, redis_url: str):
+    def __init__(self, neo4j: Neo4jService, mongo: MongoService):
         self._estudiante_repo = EstudianteRepository(neo4j)
         self._materia_repo = MateriaRepository(neo4j)
         self._materia_estudiante_repo = MateriaEstudianteRepository(neo4j)
         self._estudiante_mdb_repo = EstudianteMDBRepository(mongo)
         self._curriculum_repo = CurriculumRepository(mongo)
         self._intento_repo = IntentoRepository(mongo)
-        self._cache_sesion = SessionCacheRepository(redis_url)
-        self._cache_intento = IntentoCacheRepository(redis_url)
+        self._sesion_repo = SesionRepository(mongo)
 
         self.limite_intentos = 5
         self.warning_threshold = 4
@@ -57,13 +55,13 @@ class StudyService:
     def start_attempt(self, token: str, id_materia: str,
                       id_contenido: str, tipo_contenido: str,
                       duracion_total: int = 0) -> dict:
-        
-        sesion = self._cache_sesion.validar_sesion(token)
-        if not sesion:
+
+        sesion_doc = self._sesion_repo.find_by_token(token)
+        if not sesion_doc:
             raise ValueError("Sesión inválida o expirada.")
 
-        user_id = sesion["user_id"]
-        sesion_id = sesion["sesion_id"]
+        user_id = sesion_doc["estudiante"]["uid"]
+        sesion_id = sesion_doc["uid"]
         estudiante = self._estudiante_mdb_repo.find_by_id(user_id)
         if not estudiante:
             raise ValueError(f"Estudiante {user_id} no encontrado.")
@@ -80,28 +78,19 @@ class StudyService:
             inicio=datetime.now(timezone.utc),
         )
 
-        if duracion_total > 0:
-            self._cache_intento.iniciar_cronometro(
-                intento_id, id_contenido, user_id, duracion_total
-            )
-
-        return {"intento_id": intento_id}
+        return {"intento_id": intento_id, "duracion_total": duracion_total}
 
     def pause_attempt(self, intento_id: str) -> float:
-        doc = self._intento_repo.find_by_id(intento_id)
+        doc = self._intento_repo.pause_attempt(intento_id)
         if not doc:
             raise ValueError(f"Intento {intento_id} no encontrado.")
-        return self._cache_intento.pausar_cronometro(
-            doc["id_contenido"], doc["estudiante"]["uid"]
-        )
+        return float(doc["duracion_segundos"])
 
     def resume_attempt(self, intento_id: str) -> float:
-        doc = self._intento_repo.find_by_id(intento_id)
+        doc = self._intento_repo.resume_attempt(intento_id)
         if not doc:
-            raise ValueError(f"Intento {intento_id} no encontrado.")
-        return self._cache_intento.reanudar_cronometro(
-            doc["id_contenido"], doc["estudiante"]["uid"]
-        )
+            raise ValueError(f"Intento {intento_id} no encontrado o no está pausado.")
+        return float(doc["duracion_segundos"])
 
     def close_attempt(self, intento_id: str, *, aprobado: bool,
                       terminado: bool,
@@ -113,25 +102,27 @@ class StudyService:
         if not doc:
             raise ValueError(f"Intento {intento_id} no encontrado.")
 
-        actividad_id = doc["id_contenido"]
-        user_id = doc["estudiante"]["uid"]
-        datos = self._cache_intento.obtener_datos(actividad_id, user_id)
+        # Si está pausado, acumular el tiempo activo final antes de cerrar
+        duracion = doc.get("duracion_segundos", 0)
+        pausas = doc.get("pausas", 0)
+        duracion_pausa = doc.get("duracion_pausa_segundos", 0)
 
-        if datos:
-            duracion = int(float(datos["transcurrido"]))
-            pausas = int(datos.get("pausas", 0))
-            duracion_pausa = int(float(datos.get("tiempo_pausado", 0)))
-        else:
-            duracion = doc.get("duracion_segundos", 0)
-            pausas = doc.get("pausas", 0)
-            duracion_pausa = doc.get("duracion_pausa_segundos", 0)
+        if doc.get("pausa_inicio") is None:
+            # No está pausado: acumular el tramo activo actual
+            ahora = datetime.now(timezone.utc)
+            ultima = doc.get("ultima_reanudacion", doc["inicio"])
+            if isinstance(ultima, str):
+                ultima = datetime.fromisoformat(ultima)
+            if ultima.tzinfo is None:
+                ultima = ultima.replace(tzinfo=timezone.utc)
+            duracion += int((ahora - ultima).total_seconds())
 
         intento = Intento(
             uid=doc["uid"],
             estudiante=Estudiante(**doc["estudiante"]),
             id_sesion=doc["id_sesion"],
             id_materia=doc["id_materia"],
-            id_contenido=actividad_id,
+            id_contenido=doc["id_contenido"],
             tipo_contenido=doc["tipo_contenido"],
             inicio=doc["inicio"],
             fin=datetime.now(timezone.utc),
@@ -147,11 +138,11 @@ class StudyService:
         )
 
         self._intento_repo.close_attempt(intento)
-        self._cache_intento.detener_cronometro(actividad_id, user_id)
+        self._sesion_repo.add_attempt_session(intento.id_sesion, intento)
 
         precuela = None
         warning = False
-        if (not terminado or not aprobado) and self.warning_verdict(user_id):
+        if (not terminado or not aprobado) and self.warning_verdict(user_id=doc["estudiante"]["uid"]):
             warning = True
             precuela = self._materia_repo.get_prequel_if_exists(doc["id_materia"])
 

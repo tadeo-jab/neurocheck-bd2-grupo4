@@ -8,18 +8,23 @@ class MateriaRepository:
     def __init__(self, neo4j: Neo4jService):
         self._neo4j = neo4j
 
-
     def get_materia(self, id: str) -> Materia | None:
         query = "MATCH (m:Materia {id: $id}) RETURN m"
-        resultados = self._neo4j.read(query, id=id)
+        params = {"id": id}
+        print(f"[Neo4j] READ {query}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return Materia(**resultados[0]["m"]) if resultados else None
 
     def exists_by_id(self, id: str) -> bool:
         query = "MATCH (m:Materia {id: $id}) RETURN COUNT(m) > 0 AS existe"
-        return self._neo4j.read(query, id=id)[0]["existe"]
+        params = {"id": id}
+        print(f"[Neo4j] READ {query}\n       params={params}")
+        return self._neo4j.read(query, **params)[0]["existe"]
 
     def get_all_subjects(self) -> list[Materia]:
         query = "MATCH (m:Materia) RETURN m"
+        params = {}
+        print(f"[Neo4j] READ {query}")
         resultados = self._neo4j.read(query)
         return [Materia(**r["m"]) for r in resultados]
 
@@ -31,6 +36,7 @@ class MateriaRepository:
                    type(r) AS tipo,
                    properties(r) AS propiedades
         """
+        print(f"[Neo4j] READ {query.strip()}")
         return self._neo4j.read(query)
 
     def get_related_subjects(self, id_materia: str) -> list[Materia]:
@@ -39,7 +45,9 @@ class MateriaRepository:
             MATCH (m)-[:REQUIERE|ALTERNATIVA*0..15]-(relacionada:Materia)
             RETURN DISTINCT relacionada
         """
-        resultados = self._neo4j.read(query, id_materia=id_materia)
+        params = {"id_materia": id_materia}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return [Materia(**r["relacionada"]) for r in resultados]
 
     def get_prequel_if_exists(self, id_materia: str) -> Materia | None:
@@ -47,7 +55,9 @@ class MateriaRepository:
             MATCH (m:Materia {id: $id})-[:REQUIERE {secuela: true}]->(precuela:Materia)
             RETURN precuela
         """
-        resultados = self._neo4j.read(query, id=id_materia)
+        params = {"id": id_materia}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return Materia(**resultados[0]["precuela"]) if resultados else None
 
     def get_related_edges(self, id_materia: str) -> list[dict]:
@@ -61,7 +71,6 @@ class MateriaRepository:
                             type(r) AS tipo,
                             properties(r) AS propiedades
         """
-        return self._neo4j.read(query, id_materia=id_materia)
-    
-
-
+        params = {"id_materia": id_materia}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        return self._neo4j.read(query, **params)

@@ -44,6 +44,7 @@ class Sesion(BaseModel):
     fecha_fin: datetime | None = None
     intentos_estudio: list[Intento] = []
     fatiga_estimada: float
+    token: str | None = None
 
 
 

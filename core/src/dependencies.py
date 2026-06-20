@@ -43,9 +43,8 @@ def get_mates_service(
 def get_study_service(
     neo4j: Neo4jService = Depends(get_neo4j),
     mongo: MongoService = Depends(get_mongo),
-    redis_url: str = Depends(get_redis_url),
 ) -> StudyService:
-    return StudyService(neo4j, mongo, redis_url)
+    return StudyService(neo4j, mongo)
 
 def get_admin_service(
     mongo: MongoService = Depends(get_mongo),

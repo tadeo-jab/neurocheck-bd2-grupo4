@@ -8,7 +8,6 @@ class MateriaEstudianteRepository:
     def __init__(self, neo4j: Neo4jService):
         self._neo4j = neo4j
 
-
     def get_student_nodes_status(self, id_estudiante: str) -> list[dict]:
         query = """
             MATCH (m:Materia)
@@ -27,7 +26,9 @@ class MateriaEstudianteRepository:
                      ELSE 'completada'
                    END AS estado
         """
-        return self._neo4j.read(query, id_estudiante=id_estudiante)
+        params = {"id_estudiante": id_estudiante}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        return self._neo4j.read(query, **params)
 
     def get_student_currently_enrolled(self, id_estudiante: str) -> list[Materia]:
         query = """
@@ -35,9 +36,10 @@ class MateriaEstudianteRepository:
             WHERE rel.completado = false
             RETURN m
         """
-        resultados = self._neo4j.read(query, id_estudiante=id_estudiante)
+        params = {"id_estudiante": id_estudiante}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return [Materia(**r["m"]) for r in resultados]
-
 
     def set_student_enroll(self, id_estudiante: str, id_materia: str, estilo_preferido: str) -> None:
         query = """
@@ -49,22 +51,25 @@ class MateriaEstudianteRepository:
                 estilo_actual: $estilo_preferido
             }]->(m)
         """
-        self._neo4j.write(query, id_estudiante=id_estudiante, id_materia=id_materia, estilo_preferido=estilo_preferido)
+        params = {"id_estudiante": id_estudiante, "id_materia": id_materia, "estilo_preferido": estilo_preferido}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
 
     def unenroll_student(self, id_estudiante: str, id_materia: str) -> None:
         query = """
             MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia {id: $id_materia})
             DELETE rel
         """
-        self._neo4j.write(query, id_estudiante=id_estudiante, id_materia=id_materia)
+        params = {"id_estudiante": id_estudiante, "id_materia": id_materia}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
 
     def get_enrollment_style(self, id_estudiante: str, id_materia: str) -> str | None:
         query = """
             MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia {id: $id_materia})
             RETURN rel.estilo_actual AS estilo
         """
-        resultados = self._neo4j.read(query, id_estudiante=id_estudiante, id_materia=id_materia)
+        params = {"id_estudiante": id_estudiante, "id_materia": id_materia}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        resultados = self._neo4j.read(query, **params)
         return resultados[0]["estilo"] if resultados else None
-
-
-

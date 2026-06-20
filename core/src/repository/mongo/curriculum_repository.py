@@ -9,21 +9,23 @@ class CurriculumRepository:
         self._mongo = mongo
 
     def get_course_by_style(self, id_materia: str, estilo: str) -> CaminoAprendizaje | None:
-        doc = self._mongo.db.curriculum.find_one(
-            {"uid": id_materia},
-            {f"caminos.{estilo}": 1}
-        )
+        filtro = {"uid": id_materia}
+        proyeccion = {f"caminos.{estilo}": 1}
+        doc = self._mongo.db.curriculum.find_one(filtro, proyeccion)
+        print(f"[Mongo] db.curriculum.find_one({filtro}, {proyeccion})")
         if not doc:
             return None
         camino = doc.get("caminos", {}).get(estilo)
         return CaminoAprendizaje(**camino) if camino else None
 
     def get_resource(self, id_recurso: str) -> Recurso | None:
-        doc = self._mongo.db.recursos.find_one({"uid": id_recurso})
+        filtro = {"uid": id_recurso}
+        doc = self._mongo.db.recursos.find_one(filtro)
+        print(f"[Mongo] db.recursos.find_one({filtro})")
         return Recurso(**doc) if doc else None
 
     def get_activity(self, id_actividad: str) -> Actividad | None:
-        doc = self._mongo.db.actividades.find_one({"uid": id_actividad})
+        filtro = {"uid": id_actividad}
+        doc = self._mongo.db.actividades.find_one(filtro)
+        print(f"[Mongo] db.actividades.find_one({filtro})")
         return Actividad(**doc) if doc else None
-    
-    

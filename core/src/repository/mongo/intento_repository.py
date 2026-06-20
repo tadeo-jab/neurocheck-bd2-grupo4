@@ -26,24 +26,78 @@ class IntentoRepository:
             "duracion_segundos": 0,
             "pausas": 0,
             "duracion_pausa_segundos": 0,
+            "pausa_inicio": None,
+            "ultima_reanudacion": inicio,
         }
         self._mongo.db.intentos.insert_one(doc)
+        print(f"[Mongo] db.intentos.insert_one({doc})")
 
     def find_by_id(self, id_intento: str) -> dict | None:
-        return self._mongo.db.intentos.find_one({"uid": id_intento})
+        filtro = {"uid": id_intento}
+        doc = self._mongo.db.intentos.find_one(filtro)
+        print(f"[Mongo] db.intentos.find_one({filtro})")
+        return doc
+
+    def pause_attempt(self, id_intento: str) -> dict | None:
+        """Registra una pausa: acumula el tiempo activo transcurrido y marca pausa_inicio.
+        Retorna el documento actualizado, o None si no existe."""
+        ahora = datetime.now(timezone.utc)
+        filtro = {"uid": id_intento}
+        doc = self._mongo.db.intentos.find_one(filtro)
+        print(f"[Mongo] db.intentos.find_one({filtro})")
+        if not doc:
+            return None
+        ultima = doc["ultima_reanudacion"]
+        if isinstance(ultima, str):
+            ultima = datetime.fromisoformat(ultima)
+        if ultima.tzinfo is None:
+            ultima = ultima.replace(tzinfo=timezone.utc)
+        elapsed = int((ahora - ultima).total_seconds())
+        update = {"$inc": {"duracion_segundos": elapsed, "pausas": 1},
+                  "$set": {"pausa_inicio": ahora}}
+        self._mongo.db.intentos.update_one(filtro, update)
+        print(f"[Mongo] db.intentos.update_one({filtro}, {update})")
+        doc["duracion_segundos"] = doc.get("duracion_segundos", 0) + elapsed
+        doc["pausas"] = doc.get("pausas", 0) + 1
+        doc["pausa_inicio"] = ahora
+        return doc
+
+    def resume_attempt(self, id_intento: str) -> dict | None:
+        """Reanuda tras una pausa: acumula la duración de la pausa y limpia pausa_inicio.
+        Retorna el documento actualizado, o None si no existe o no estaba pausado."""
+        ahora = datetime.now(timezone.utc)
+        filtro = {"uid": id_intento}
+        doc = self._mongo.db.intentos.find_one(filtro)
+        print(f"[Mongo] db.intentos.find_one({filtro})")
+        if not doc or not doc.get("pausa_inicio"):
+            return None
+        pausa_inicio = doc["pausa_inicio"]
+        if isinstance(pausa_inicio, str):
+            pausa_inicio = datetime.fromisoformat(pausa_inicio)
+        if pausa_inicio.tzinfo is None:
+            pausa_inicio = pausa_inicio.replace(tzinfo=timezone.utc)
+        pausa_duracion = int((ahora - pausa_inicio).total_seconds())
+        update = {"$inc": {"duracion_pausa_segundos": pausa_duracion},
+                  "$set": {"pausa_inicio": None, "ultima_reanudacion": ahora}}
+        self._mongo.db.intentos.update_one(filtro, update)
+        print(f"[Mongo] db.intentos.update_one({filtro}, {update})")
+        doc["duracion_pausa_segundos"] = doc.get("duracion_pausa_segundos", 0) + pausa_duracion
+        doc["pausa_inicio"] = None
+        doc["ultima_reanudacion"] = ahora
+        return doc
 
     def get_last_attempts(self, student_id: str, limit: int) -> list[dict]:
-        cursor = self._mongo.db.intentos.find(
-            {"estudiante.uid": student_id},
-            {"uid": 1, "aprobado": 1, "terminado": 1, "_id": 0},
-        ).sort("inicio", -1).limit(limit)
+        filtro = {"estudiante.uid": student_id}
+        proyeccion = {"uid": 1, "aprobado": 1, "terminado": 1, "_id": 0}
+        cursor = self._mongo.db.intentos.find(filtro, proyeccion).sort("inicio", -1).limit(limit)
+        print(f"[Mongo] db.intentos.find({filtro}, {proyeccion}).sort('inicio', -1).limit({limit})")
         return list(cursor)
 
     def close_attempt(self, intento: Intento) -> None:
         datos = intento.model_dump(exclude={"uid", "estudiante", "id_sesion",
                                             "id_materia", "id_contenido",
                                             "tipo_contenido", "inicio"})
-        self._mongo.db.intentos.update_one(
-            {"uid": intento.uid},
-            {"$set": datos}
-        )
+        filtro = {"uid": intento.uid}
+        update = {"$set": datos}
+        self._mongo.db.intentos.update_one(filtro, update)
+        print(f"[Mongo] db.intentos.update_one({filtro}, {update})")

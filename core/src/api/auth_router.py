@@ -1,5 +1,9 @@
+import logging
+
 from fastapi import APIRouter, Depends, Header
 from pydantic import BaseModel
+
+logger = logging.getLogger(__name__)
 
 from src.dependencies import get_auth_service
 from src.service.auth_service import AuthService
@@ -22,6 +26,7 @@ class RegisterBody(BaseModel):
 
 @router.post("/login")
 def login(body: LoginBody, service: AuthService = Depends(get_auth_service)):
+    print(f"[auth_router] POST /login — email={body.email}, password={body.password}")
     return service.login(body.email, body.password)
 
 
