@@ -9,6 +9,11 @@ class MateriaRepository:
         self._neo4j = neo4j
 
 
+    def get_materia(self, id: str) -> Materia | None:
+        query = "MATCH (m:Materia {id: $id}) RETURN m"
+        resultados = self._neo4j.read(query, id=id)
+        return Materia(**resultados[0]["m"]) if resultados else None
+
     def exists_by_id(self, id: str) -> bool:
         query = "MATCH (m:Materia {id: $id}) RETURN COUNT(m) > 0 AS existe"
         return self._neo4j.read(query, id=id)[0]["existe"]
@@ -36,6 +41,14 @@ class MateriaRepository:
         """
         resultados = self._neo4j.read(query, id_materia=id_materia)
         return [Materia(**r["relacionada"]) for r in resultados]
+
+    def get_prequel_if_exists(self, id_materia: str) -> Materia | None:
+        query = """
+            MATCH (m:Materia {id: $id})-[:REQUIERE {secuela: true}]->(precuela:Materia)
+            RETURN precuela
+        """
+        resultados = self._neo4j.read(query, id=id_materia)
+        return Materia(**resultados[0]["precuela"]) if resultados else None
 
     def get_related_edges(self, id_materia: str) -> list[dict]:
         query = """

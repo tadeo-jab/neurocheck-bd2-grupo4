@@ -40,11 +40,13 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    from src.api.admin_router import router as admin_router
     from src.api.auth_router import router as auth_router
     from src.api.curriculum_router import router as curriculum_router
     from src.api.mates_router import router as mates_router
     from src.api.study_router import router as study_router
 
+    app.include_router(admin_router, prefix="/api")
     app.include_router(auth_router, prefix="/api")
     app.include_router(curriculum_router, prefix="/api")
     app.include_router(mates_router, prefix="/api")

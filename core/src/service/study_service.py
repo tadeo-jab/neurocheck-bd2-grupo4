@@ -25,6 +25,9 @@ class StudyService:
         self._cache_sesion = SessionCacheRepository(redis_url)
         self._cache_intento = IntentoCacheRepository(redis_url)
 
+        self.limite_intentos = 5
+        self.warning_threshold = 4
+
     # ── Currículum ────────────────────────────────────────
 
     def get_subject_course(self, id_estudiante: str, id_materia: str) -> CaminoAprendizaje:
@@ -43,11 +46,18 @@ class StudyService:
 
         return camino
 
+    def get_resource(self, id_recurso: str) -> Recurso:
+        recurso = self._curriculum_repo.get_resource(id_recurso)
+        if not recurso:
+            raise ValueError(f"Recurso {id_recurso} no encontrado.")
+        return recurso
+
     # ── Intento ───────────────────────────────────────────
 
     def start_attempt(self, token: str, id_materia: str,
                       id_contenido: str, tipo_contenido: str,
                       duracion_total: int = 0) -> dict:
+        
         sesion = self._cache_sesion.validar_sesion(token)
         if not sesion:
             raise ValueError("Sesión inválida o expirada.")
@@ -75,15 +85,7 @@ class StudyService:
                 intento_id, id_contenido, user_id, duracion_total
             )
 
-        if tipo_contenido == "recurso":
-            contenido = self._curriculum_repo.get_resource(id_contenido)
-        else:
-            contenido = self._curriculum_repo.get_activity(id_contenido)
-
-        if not contenido:
-            raise ValueError(f"Contenido {id_contenido} no encontrado.")
-
-        return {"intento_id": intento_id, "contenido": contenido}
+        return {"intento_id": intento_id}
 
     def pause_attempt(self, intento_id: str) -> float:
         doc = self._intento_repo.find_by_id(intento_id)
@@ -101,12 +103,12 @@ class StudyService:
             doc["id_contenido"], doc["estudiante"]["uid"]
         )
 
-    def close_attempt(self, intento_id: str, *, terminado: bool = True,
+    def close_attempt(self, intento_id: str, *, aprobado: bool,
+                      terminado: bool,
                       auto_percepcion: int | None = None,
                       aciertos: int | None = None,
                       errores: int | None = None,
-                      puntaje: float | None = None,
-                      aprobado: bool | None = None) -> None:
+                      puntaje: float | None = None) -> dict:
         doc = self._intento_repo.find_by_id(intento_id)
         if not doc:
             raise ValueError(f"Intento {intento_id} no encontrado.")
@@ -146,3 +148,20 @@ class StudyService:
 
         self._intento_repo.close_attempt(intento)
         self._cache_intento.detener_cronometro(actividad_id, user_id)
+
+        precuela = None
+        warning = False
+        if (not terminado or not aprobado) and self.warning_verdict(user_id):
+            warning = True
+            precuela = self._materia_repo.get_prequel_if_exists(doc["id_materia"])
+
+        print(f"[close_attempt] intento={intento_id} materia={doc['id_materia']} "
+              f"terminado={terminado} aprobado={aprobado} "
+              f"warning={warning} precuela={precuela.id if precuela else None}")
+
+        return {"warning": warning, "precuela": precuela}
+
+    def warning_verdict(self, user_id: str) -> bool:
+        attempts = self._intento_repo.get_last_attempts(user_id, self.limite_intentos)
+        malos = sum(1 for a in attempts if not a.get("aprobado") or not a.get("terminado"))
+        return malos >= self.warning_threshold

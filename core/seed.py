@@ -2,8 +2,10 @@
 
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
 import bcrypt
+import bson
 
 from src.config import settings
 from src.db.mongo import MongoService
@@ -22,9 +24,12 @@ ESTUDIANTES = [
 
 MATERIAS = [
     {"id": "mat-prog",    "nombre": "Introducción a la Programación",  "desc": "Variables, control de flujo, funciones y OOP básico.",                        "diff": 1.0, "horas": 60,  "frec": "trimestral"},
+    {"id": "mat-prog-ii", "nombre": "Programación II",                 "desc": "POO avanzada, patrones de diseño, testing y buenas prácticas.",              "diff": 2.0, "horas": 80,  "frec": "trimestral"},
     {"id": "mat-estruc",  "nombre": "Estructuras de Datos",            "desc": "Listas, pilas, colas, árboles, grafos y análisis de complejidad.",            "diff": 2.0, "horas": 80,  "frec": "trimestral"},
     {"id": "mat-fund",    "nombre": "Fundamentos de Datos",            "desc": "Modelado, normalización, SQL básico y álgebra relacional.",                   "diff": 1.5, "horas": 60,  "frec": "trimestral"},
+    {"id": "mat-fund-ii", "nombre": "Fundamentos de Datos II",         "desc": "Modelado avanzado, álgebra relacional aplicada y tuning de queries.",         "diff": 2.5, "horas": 70,  "frec": "trimestral"},
     {"id": "mat-bdrel",   "nombre": "Bases de Datos Relacionales",     "desc": "PostgreSQL, índices, transacciones, ACID, optimización de consultas.",       "diff": 2.5, "horas": 80,  "frec": "semestral"},
+    {"id": "mat-bdrel-ii","nombre": "Bases de Datos Relacionales II",  "desc": "Replicación, particionamiento, PL/pgSQL y administración avanzada.",         "diff": 3.5, "horas": 90,  "frec": "semestral"},
     {"id": "mat-bdnosql", "nombre": "Bases de Datos NoSQL",            "desc": "MongoDB, Neo4j, Redis — modelado y casos de uso.",                           "diff": 3.0, "horas": 70,  "frec": "semestral"},
     {"id": "mat-mineria", "nombre": "Minería de Datos",                "desc": "Preprocesamiento, clustering, clasificación y reglas de asociación.",         "diff": 3.5, "horas": 90,  "frec": "semestral"},
     {"id": "mat-ml",      "nombre": "Machine Learning",                "desc": "Regresión, árboles de decisión, SVM, redes neuronales y ensambles.",         "diff": 4.0, "horas": 100, "frec": "semestral"},
@@ -32,17 +37,22 @@ MATERIAS = [
     {"id": "mat-ingav",   "nombre": "Ingeniería de Datos Avanzada",    "desc": "Pipelines ETL, data lakes, Kafka, Airflow y arquitecturas cloud.",           "diff": 4.5, "horas": 120, "frec": "anual"},
 ]
 
-# prereq → {requiere: id, peso, obligatorio}
+# prereq → (origen, destino, peso, obligatorio, secuela)
 PRERREQUISITOS = [
-    ("mat-estruc",  "mat-prog",    1.0, True),
-    ("mat-bdrel",   "mat-fund",    1.0, True),
-    ("mat-bdnosql", "mat-bdrel",   0.8, True),
-    ("mat-mineria", "mat-bdrel",   0.6, True),
-    ("mat-ml",      "mat-mineria", 0.9, True),
-    ("mat-ml",      "mat-estruc",  0.7, True),
-    ("mat-viz",     "mat-fund",    0.4, True),
-    ("mat-ingav",   "mat-ml",      1.0, True),
-    ("mat-ingav",   "mat-bdnosql", 0.8, True),
+    # Secuelas directas (secuela=True)
+    ("mat-prog-ii", "mat-prog",    1.0, True, True),
+    ("mat-fund-ii", "mat-fund",    1.0, True, True),
+    ("mat-bdrel-ii","mat-bdrel",   1.0, True, True),
+    # Prerrequisitos normales (secuela=False)
+    ("mat-estruc",  "mat-prog",    1.0, True, False),
+    ("mat-bdrel",   "mat-fund",    1.0, True, False),
+    ("mat-bdnosql", "mat-bdrel",   0.8, True, False),
+    ("mat-mineria", "mat-bdrel",   0.6, True, False),
+    ("mat-ml",      "mat-mineria", 0.9, True, False),
+    ("mat-ml",      "mat-estruc",  0.7, True, False),
+    ("mat-viz",     "mat-fund",    0.4, True, False),
+    ("mat-ingav",   "mat-ml",      1.0, True, False),
+    ("mat-ingav",   "mat-bdnosql", 0.8, True, False),
 ]
 
 ALTERNATIVAS = [
@@ -65,6 +75,44 @@ ACTIVIDADES = [
     {"id": "act-nosql01", "nombre": "Modelado NoSQL — Caso de estudio",      "tipo": "ejercicio",  "diff": 2.0, "puntaje": 100},
     {"id": "act-ml01",    "nombre": "Modelo de clasificación — Proyecto",    "tipo": "proyecto",   "diff": 4.0, "puntaje": 150},
     {"id": "act-viz01",   "nombre": "Dashboard interactivo — Proyecto",      "tipo": "proyecto",   "diff": 2.0, "puntaje": 100},
+]
+
+PREGUNTAS = [
+    {
+        "uid": "preg-01",
+        "texto": "¿Cuál es la capital de Francia?",
+        "opciones": ["Londres", "París", "Madrid", "Berlín"],
+        "respuesta_correcta": 1,
+        "puntaje": 20,
+    },
+    {
+        "uid": "preg-02",
+        "texto": "¿Cuánto es 2 + 2?",
+        "opciones": ["3", "22", "4", "5"],
+        "respuesta_correcta": 2,
+        "puntaje": 20,
+    },
+    {
+        "uid": "preg-03",
+        "texto": "¿Qué lenguaje se ejecuta en el navegador?",
+        "opciones": ["Python", "Java", "C++", "JavaScript"],
+        "respuesta_correcta": 3,
+        "puntaje": 20,
+    },
+    {
+        "uid": "preg-04",
+        "texto": "¿Cuál es el planeta más cercano al Sol?",
+        "opciones": ["Venus", "Mercurio", "Tierra", "Marte"],
+        "respuesta_correcta": 1,
+        "puntaje": 20,
+    },
+    {
+        "uid": "preg-05",
+        "texto": "¿Cuántos bits tiene un byte?",
+        "opciones": ["4", "16", "8", "32"],
+        "respuesta_correcta": 2,
+        "puntaje": 20,
+    },
 ]
 
 # ═══════════════════════════════════════════════════════════
@@ -112,15 +160,20 @@ def seed_mongo(mongo: MongoService) -> None:
         })
 
     print("[Mongo] Insertando recursos...")
+    pdf_path = Path(__file__).resolve().parent / "seed_files" / "pdf" / "867-Article Text-2420-1-10-20240722.pdf"
+    pdf_bin = bson.Binary(pdf_path.read_bytes())
+
     for r in RECURSOS:
-        db.recursos.insert_one({
+        doc = {
             "uid": r["id"],
             "nombre": r["nombre"],
             "tipo": r["tipo"],
             "mime_type": r["mime"],
             "nombre_archivo": r["archivo"],
+            "recurso_bin": pdf_bin,
             "link_aux": r.get("link"),
-        })
+        }
+        db.recursos.insert_one(doc)
 
     print("[Mongo] Insertando actividades...")
     for a in ACTIVIDADES:
@@ -130,7 +183,7 @@ def seed_mongo(mongo: MongoService) -> None:
             "tipo": a["tipo"],
             "dificultad": a["diff"],
             "puntaje_maximo": a["puntaje"],
-            "preguntas": [],
+            "preguntas": PREGUNTAS,
         })
 
     print("[Mongo] Insertando currículums...")
@@ -208,11 +261,11 @@ def seed_neo4j(neo4j: Neo4jService) -> None:
              diff=a["diff"], puntaje=a["puntaje"])
 
     print("[Neo4j] Creando prerrequisitos...")
-    for origen, destino, peso, oblig in PRERREQUISITOS:
+    for origen, destino, peso, oblig, secuela in PRERREQUISITOS:
         neo4j.write("""
             MATCH (a:Materia {id: $origen}), (b:Materia {id: $destino})
-            MERGE (a)-[:REQUIERE {peso: $peso, obligatorio: $oblig}]->(b)
-        """, origen=origen, destino=destino, peso=peso, oblig=oblig)
+            MERGE (a)-[:REQUIERE {peso: $peso, obligatorio: $oblig, secuela: $secuela}]->(b)
+        """, origen=origen, destino=destino, peso=peso, oblig=oblig, secuela=secuela)
 
     print("[Neo4j] Creando alternativas...")
     for origen, destino, peso, estilo in ALTERNATIVAS:
@@ -224,11 +277,13 @@ def seed_neo4j(neo4j: Neo4jService) -> None:
     print("[Neo4j] Anotando estudiantes en materias...")
     enrollments = [
         ("est-001", "mat-prog"),    ("est-001", "mat-fund"),
+        ("est-001", "mat-prog-ii"),
         ("est-002", "mat-prog"),    ("est-002", "mat-fund"),
-        ("est-002", "mat-bdrel"),
+        ("est-002", "mat-bdrel"),   ("est-002", "mat-fund-ii"),
         ("est-003", "mat-prog"),    ("est-003", "mat-viz"),
+        ("est-003", "mat-prog-ii"),
         ("est-004", "mat-fund"),    ("est-004", "mat-bdrel"),
-        ("est-004", "mat-ml"),
+        ("est-004", "mat-ml"),      ("est-004", "mat-bdrel-ii"),
     ]
     for est_id, mat_id in enrollments:
         neo4j.write("""

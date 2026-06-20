@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from src.dependencies import get_study_service
@@ -15,12 +16,12 @@ class StartAttemptBody(BaseModel):
     duracion_total: int = 0
 
 class CloseAttemptBody(BaseModel):
-    terminado: bool = True
+    terminado: bool
+    aprobado: bool
     auto_percepcion: int | None = None
     aciertos: int | None = None
     errores: int | None = None
     puntaje: float | None = None
-    aprobado: bool | None = None
 
 # ── Endpoints ───────────────────────────────────────────
 
@@ -28,6 +29,17 @@ class CloseAttemptBody(BaseModel):
 def get_course(id_materia: str, id_estudiante: str,
                service: StudyService = Depends(get_study_service)):
     return service.get_subject_course(id_estudiante, id_materia)
+
+
+@router.get("/resource/{id_recurso}/file")
+def get_resource_file(id_recurso: str,
+                      service: StudyService = Depends(get_study_service)):
+    recurso = service.get_resource(id_recurso)
+    return Response(
+        content=recurso.recurso_bin,
+        media_type=recurso.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": f'inline; filename="{recurso.nombre_archivo}"'},
+    )
 
 
 @router.post("/attempt/start")
@@ -39,12 +51,12 @@ def start(body: StartAttemptBody,
                                  body.tipo_contenido, body.duracion_total)
 
 
-@router.post("/attempt/{intento_id}/pause")
+@router.put("/attempt/{intento_id}/pause")
 def pause(intento_id: str, service: StudyService = Depends(get_study_service)):
     return {"restante": service.pause_attempt(intento_id)}
 
 
-@router.post("/attempt/{intento_id}/resume")
+@router.put("/attempt/{intento_id}/resume")
 def resume(intento_id: str, service: StudyService = Depends(get_study_service)):
     return {"restante": service.resume_attempt(intento_id)}
 
@@ -52,5 +64,5 @@ def resume(intento_id: str, service: StudyService = Depends(get_study_service)):
 @router.post("/attempt/{intento_id}/close")
 def close(intento_id: str, body: CloseAttemptBody,
           service: StudyService = Depends(get_study_service)):
-    service.close_attempt(intento_id, **body.model_dump(exclude_none=True))
-    return {"ok": True}
+    result = service.close_attempt(intento_id, **body.model_dump(exclude_none=True))
+    return {"ok": True, "warning": result["warning"], "precuela": result["precuela"]}

@@ -43,10 +43,15 @@ class CurriculumService:
         }
 
 
-    def enroll_student(self, id_estudiante: str, id_materia: str) -> None:
+    def enroll_student(self, id_estudiante: str, id_materia: str, estilo_preferido: str) -> None:
         if not self._estudiante_repo.exists_by_id(id_estudiante):
             raise ValueError(f"Estudiante {id_estudiante} no encontrado")
         if not self._materia_repo.exists_by_id(id_materia):
             raise ValueError(f"Materia {id_materia} no encontrada")
-        
-        self._materia_estudiante_repo.set_student_enroll(id_estudiante, id_materia)
+
+        self._materia_estudiante_repo.set_student_enroll(id_estudiante, id_materia, estilo_preferido)
+
+    def switch_enrollment(self, id_estudiante: str, id_materia_old: str,
+                          id_materia_new: str, estilo_aprendizaje: str) -> None:
+        self._materia_estudiante_repo.unenroll_student(id_estudiante, id_materia_old)
+        self.enroll_student(id_estudiante, id_materia_new, estilo_aprendizaje)

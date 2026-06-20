@@ -1,14 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
+// https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 3030,
     proxy: {
-      '/auth': 'http://localhost:8000',
-      '/curriculum': 'http://localhost:8000',
-      '/study': 'http://localhost:8000',
-      '/mates': 'http://localhost:8000',
+      '/api': 'http://localhost:8000',
     },
   },
 })

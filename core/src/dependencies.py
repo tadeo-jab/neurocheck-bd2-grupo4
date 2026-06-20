@@ -3,6 +3,7 @@ from fastapi import Depends, Request
 from src.config import settings
 from src.db.mongo import MongoService
 from src.db.neo4j import Neo4jService
+from src.service.admin_service import AdminService
 from src.service.auth_service import AuthService
 from src.service.curriculum_service import CurriculumService
 from src.service.mates_service import MatesService
@@ -45,3 +46,8 @@ def get_study_service(
     redis_url: str = Depends(get_redis_url),
 ) -> StudyService:
     return StudyService(neo4j, mongo, redis_url)
+
+def get_admin_service(
+    mongo: MongoService = Depends(get_mongo),
+) -> AdminService:
+    return AdminService(mongo)
