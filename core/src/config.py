@@ -7,7 +7,6 @@ class Settings(BaseSettings):
     neo4j_uri: str
     neo4j_user: str
     neo4j_password: str
-    redis_url: str = "redis://localhost:6379/0"
 
     # Servidor
     host: str = "0.0.0.0"

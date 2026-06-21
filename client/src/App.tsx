@@ -5,6 +5,7 @@ import Course from './pages/Course'
 import Landing from './pages/Landing'
 import Login from './pages/Login'
 import MatesSearch from './pages/MatesSearch'
+import Populate from './pages/Populate'
 import Resource from './pages/Resource'
 import Subject from './pages/Subject'
 import SubjectTree from './pages/SubjectTree'
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/" element={<Landing />} />
       <Route path="/activity" element={<Activity />} />
       <Route path="/admin" element={<Admin />} />
+      <Route path="/populate" element={<Populate />} />
       <Route path="/login" element={<Login />} />
       <Route path="/mates-search" element={<MatesSearch />} />
       <Route path="/tree" element={<Tree />} />

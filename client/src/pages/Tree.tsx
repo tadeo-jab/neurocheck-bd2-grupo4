@@ -29,6 +29,17 @@ const ESTADO_COLOR: Record<string, string> = {
   cursando: '#7b1fa2',
 }
 
+const ESTADO_LABEL: Record<string, string> = {
+  no_cursada: 'No cursada',
+  aprobada: 'Aprobada',
+  cursando: 'Cursando',
+}
+
+const EDGE_COLOR: Record<string, string> = {
+  REQUIERE: '#546e7a',
+  ALTERNATIVA: '#e65100',
+}
+
 export default function Tree() {
   const navigate = useNavigate()
   const user = JSON.parse(localStorage.getItem('user') ?? '{}')
@@ -38,6 +49,7 @@ export default function Tree() {
   const navigateRef = useRef(navigate)
   navigateRef.current = navigate
   const [loading, setLoading] = useState(true)
+  const [tooltip, setTooltip] = useState<{ text: string; x: number; y: number } | null>(null)
   const observerRef = useRef<ResizeObserver | null>(null)
 
   const handleTap = useCallback((evt: cytoscape.EventObject) => {
@@ -46,6 +58,21 @@ export default function Tree() {
     if (materia) navigateRef.current(`/subject/${nodeId}`, { state: materia })
   }, [])
 
+  const handleMouseOver = useCallback((evt: cytoscape.EventObject) => {
+    const nodeId = evt.target.id()
+    const materia = nodosRef.current.find((n) => n.id === nodeId)
+    if (!materia || !containerRef.current) return
+    const pos = evt.renderedPosition
+    const rect = containerRef.current.getBoundingClientRect()
+    setTooltip({
+      text: `${materia.nombre} · dif ${materia.nivel_dificultad} · ${materia.tiempo_estimado}h`,
+      x: pos.x + rect.left,
+      y: pos.y + rect.top - 20,
+    })
+  }, [])
+
+  const handleMouseOut = useCallback(() => setTooltip(null), [])
+
   useEffect(() => {
     fetch(`/api/curriculum/tree/${user.id}`)
       .then((res) => res.json())
@@ -53,7 +80,6 @@ export default function Tree() {
         if (!containerRef.current) return
 
         nodosRef.current = data.nodos
-
         const estadoById = new Map(data.estados.map((e) => [e.id, e.estado]))
 
         const nodes = data.nodos.map((n) => ({
@@ -66,8 +92,10 @@ export default function Tree() {
             id: `${a.source}-${a.target}`,
             source: a.source,
             target: a.target,
-            label: a.tipo,
+            label: a.tipo === 'REQUIERE' ? 'requiere' : 'alternativa',
+            tipo: a.tipo,
           },
+          classes: a.tipo,
         }))
 
         const cy = cytoscape({
@@ -77,15 +105,21 @@ export default function Tree() {
             {
               selector: 'node',
               style: {
+                shape: 'round-rectangle',
                 label: 'data(label)',
                 'text-valign': 'center',
                 'text-halign': 'center',
-                'background-color': '#1976d2',
+                'background-color': ESTADO_COLOR.no_cursada,
                 color: '#fff',
-                'font-size': 12,
-                width: 40,
-                height: 40,
+                'font-size': 11,
+                'font-weight': 'bold',
+                width: 130,
+                height: 44,
+                'text-wrap': 'wrap',
+                'text-max-width': '116px',
                 'text-events': 'no',
+                'border-width': 0,
+                padding: '6px',
               },
             },
             ...Object.entries(ESTADO_COLOR).map(([clase, color]) => ({
@@ -93,30 +127,60 @@ export default function Tree() {
               style: { 'background-color': color },
             })),
             {
-              selector: 'edge',
+              selector: 'edge.REQUIERE',
               style: {
                 label: 'data(label)',
-                'font-size': 10,
+                'font-size': 9,
+                'text-background-color': '#fff',
+                'text-background-opacity': 0.8,
+                'text-background-padding': '2px',
                 'curve-style': 'bezier',
                 'target-arrow-shape': 'triangle',
-                'line-color': '#aaa',
-                'target-arrow-color': '#aaa',
+                'line-color': EDGE_COLOR.REQUIERE,
+                'target-arrow-color': EDGE_COLOR.REQUIERE,
+                width: 1.5,
+                color: EDGE_COLOR.REQUIERE,
+              },
+            },
+            {
+              selector: 'edge.ALTERNATIVA',
+              style: {
+                label: 'data(label)',
+                'font-size': 9,
+                'text-background-color': '#fff',
+                'text-background-opacity': 0.8,
+                'text-background-padding': '2px',
+                'curve-style': 'bezier',
+                'target-arrow-shape': 'triangle',
+                'line-style': 'dashed',
+                'line-color': EDGE_COLOR.ALTERNATIVA,
+                'target-arrow-color': EDGE_COLOR.ALTERNATIVA,
+                width: 1.5,
+                color: EDGE_COLOR.ALTERNATIVA,
               },
             },
           ],
+          layout: {
+            name: 'breadthfirst',
+            directed: true,
+            padding: 24,
+            spacingFactor: 1.4,
+          },
+          minZoom: 0.3,
+          maxZoom: 2.5,
+          wheelSensitivity: 0.3,
         })
 
-        // ResizeObserver mantiene el canvas sincronizado con el contenedor
         observerRef.current = new ResizeObserver(() => {
           cy.resize()
-          cy.fit()
+          cy.fit(undefined, 24)
         })
         observerRef.current.observe(containerRef.current)
 
-        cy.resize()
-        cy.layout({ name: 'breadthfirst', directed: true }).run()
-
+        cy.fit(undefined, 24)
         cy.on('tap', 'node', handleTap)
+        cy.on('mouseover', 'node', handleMouseOver)
+        cy.on('mouseout', 'node', handleMouseOut)
 
         cyRef.current = cy
         setLoading(false)
@@ -126,18 +190,94 @@ export default function Tree() {
       cyRef.current?.destroy()
       observerRef.current?.disconnect()
     }
-  }, [user.id, handleTap])
+  }, [user.id, handleTap, handleMouseOver, handleMouseOut])
 
   return (
-    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '12px 24px', borderBottom: '1px solid #ccc' }}>
-        <Link to="/">← Volver</Link>
-      </div>
-      {loading && <p style={{ padding: 24 }}>Cargando...</p>}
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header */}
       <div
-        ref={containerRef}
-        style={{ flex: 1, width: '100%' }}
-      />
+        style={{
+          padding: '10px 20px',
+          borderBottom: '1px solid #e0e0e0',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 24,
+          flexShrink: 0,
+          background: '#fff',
+        }}
+      >
+        <Link to="/" style={{ fontWeight: 500 }}>← Volver</Link>
+        <strong style={{ fontSize: 16 }}>Árbol de materias</strong>
+        <span style={{ fontSize: 13, color: '#666' }}>
+          Hacé clic en una materia para ver detalles
+        </span>
+      </div>
+
+      {/* Leyenda */}
+      <div
+        style={{
+          padding: '8px 20px',
+          borderBottom: '1px solid #f0f0f0',
+          display: 'flex',
+          gap: 20,
+          flexWrap: 'wrap',
+          flexShrink: 0,
+          background: '#fafafa',
+          fontSize: 12,
+        }}
+      >
+        {Object.entries(ESTADO_LABEL).map(([key, label]) => (
+          <span key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: 3,
+                background: ESTADO_COLOR[key],
+                display: 'inline-block',
+                flexShrink: 0,
+              }}
+            />
+            {label}
+          </span>
+        ))}
+        <span style={{ color: '#888', marginLeft: 12 }}>
+          <span style={{ borderBottom: '2px solid ' + EDGE_COLOR.REQUIERE, paddingBottom: 1, marginRight: 4 }}>—</span>
+          requiere
+        </span>
+        <span style={{ color: '#888' }}>
+          <span style={{ borderBottom: '2px dashed ' + EDGE_COLOR.ALTERNATIVA, paddingBottom: 1, marginRight: 4 }}>--</span>
+          alternativa
+        </span>
+      </div>
+
+      {/* Contenedor del grafo */}
+      {loading && (
+        <p style={{ padding: 24, color: '#666', flexShrink: 0 }}>Cargando grafo...</p>
+      )}
+      <div ref={containerRef} style={{ flex: 1 }} />
+
+      {/* Tooltip */}
+      {tooltip && (
+        <div
+          style={{
+            position: 'fixed',
+            left: tooltip.x,
+            top: tooltip.y,
+            transform: 'translate(-50%, -100%)',
+            background: 'rgba(0,0,0,0.75)',
+            color: '#fff',
+            padding: '4px 10px',
+            borderRadius: 6,
+            fontSize: 12,
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 9999,
+          }}
+        >
+          {tooltip.text}
+        </div>
+      )}
     </div>
   )
 }

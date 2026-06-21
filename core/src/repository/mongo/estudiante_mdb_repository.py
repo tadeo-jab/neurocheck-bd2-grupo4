@@ -1,3 +1,5 @@
+import json
+
 from src.db.mongo import MongoService
 from src.model.collection_models import Estudiante
 
@@ -11,16 +13,17 @@ class EstudianteMDBRepository:
     def find_by_email(self, email: str) -> Estudiante | None:
         filtro = {"email": email}
         doc = self._mongo.db.estudiantes.find_one(filtro)
-        print(f"[Mongo] db.estudiantes.find_one({filtro})")
+        print(f"[Mongo] db.estudiantes.find_one({json.dumps(filtro, ensure_ascii=False)})")
         return Estudiante(**doc) if doc else None
 
     def find_by_id(self, id: str) -> Estudiante | None:
         filtro = {"uid": id}
         doc = self._mongo.db.estudiantes.find_one(filtro)
-        print(f"[Mongo] db.estudiantes.find_one({filtro})")
+        print(f"[Mongo] db.estudiantes.find_one({json.dumps(filtro, ensure_ascii=False)})")
         return Estudiante(**doc) if doc else None
 
     def insert(self, estudiante: Estudiante) -> None:
         doc = estudiante.model_dump()
         self._mongo.db.estudiantes.insert_one(doc)
-        print(f"[Mongo] db.estudiantes.insert_one({doc})")
+        print(f"[Mongo] db.estudiantes.insert_one({{uid: {json.dumps(estudiante.uid)}, "
+              f"email: {json.dumps(estudiante.email)}}})")

@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import datetime, timezone
 
@@ -21,17 +22,22 @@ class EventoRepository:
             "timestamp": datetime.now(timezone.utc),
         }
         self._mongo.db.eventos.insert_one(doc)
-        print(f"[Mongo] db.eventos.insert_one({doc})")
+        resumen = {
+            "uid": doc["uid"],
+            "id_usuario.uid": usuario.uid,
+            "sesion.uid": sesion.uid,
+            "tipo_evento": tipo_evento,
+        }
+        print(f"[Mongo] db.eventos.insert_one({json.dumps(resumen, ensure_ascii=False)})")
         return doc["uid"]
 
     def get_events_by_student(self, estudiante_id: str,
                               limite: int = 50) -> list[dict]:
-        cursor = self._mongo.db.eventos.find(
-            {"id_usuario.uid": estudiante_id}
-        ).sort("timestamp", -1).limit(limite)
-        docs = list(cursor)
+        filtro = {"id_usuario.uid": estudiante_id}
+        docs = list(self._mongo.db.eventos.find(filtro)
+                    .sort("timestamp", -1).limit(limite))
         for doc in docs:
             doc.pop("_id", None)
-        print(f"[Mongo] db.eventos.find({{id_usuario.uid: {estudiante_id}}}) "
-              f"→ {len(docs)} docs")
+        print(f"[Mongo] db.eventos.find({json.dumps(filtro, ensure_ascii=False)})"
+              f".sort('timestamp', -1).limit({limite}) → {len(docs)} docs")
         return docs

@@ -45,5 +45,6 @@ def get_study_service(
 
 def get_admin_service(
     mongo: MongoService = Depends(get_mongo),
+    neo4j: Neo4jService = Depends(get_neo4j),
 ) -> AdminService:
-    return AdminService(mongo)
+    return AdminService(mongo, neo4j)

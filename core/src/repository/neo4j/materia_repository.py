@@ -42,7 +42,7 @@ class MateriaRepository:
     def get_related_subjects(self, id_materia: str) -> list[Materia]:
         query = """
             MATCH (m:Materia {id: $id_materia})
-            MATCH (m)-[:REQUIERE|ALTERNATIVA*0..15]-(relacionada:Materia)
+            MATCH (m)-[:REQUIERE|ALTERNATIVA*0..2]-(relacionada:Materia)
             RETURN DISTINCT relacionada
         """
         params = {"id_materia": id_materia}
@@ -60,12 +60,57 @@ class MateriaRepository:
         resultados = self._neo4j.read(query, **params)
         return Materia(**resultados[0]["precuela"]) if resultados else None
 
+    def get_passed_count(self, id_estudiante: str) -> int:
+        query = """
+            MATCH (e:Estudiante {id: $id_estudiante})-[rel:ANOTADO_EN]->(m:Materia)
+            WHERE rel.completado = true
+            RETURN COUNT(m) AS aprobadas
+        """
+        params = {"id_estudiante": id_estudiante}
+        print(f"[Neo4j] READ {query.strip()}\n       params={params}")
+        return self._neo4j.read(query, **params)[0]["aprobadas"]
+
+    def create_subject(self, id: str, nombre: str, descripcion: str,
+                       nivel_dificultad: float, tiempo_estimado: int,
+                       frecuencia_uso: str) -> None:
+        query = """
+            CREATE (:Materia {
+                id: $id,
+                nombre: $nombre,
+                descripcion: $descripcion,
+                nivel_dificultad: $nivel_dificultad,
+                tiempo_estimado: $tiempo_estimado,
+                frecuencia_uso: $frecuencia_uso
+            })
+        """
+        params = {"id": id, "nombre": nombre, "descripcion": descripcion,
+                  "nivel_dificultad": nivel_dificultad, "tiempo_estimado": tiempo_estimado,
+                  "frecuencia_uso": frecuencia_uso}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
+
+    def create_requires_relationship(self, origen: str, destino: str,
+                                     peso: float, obligatorio: bool,
+                                     secuela: bool) -> None:
+        query = """
+            MATCH (a:Materia {id: $origen}), (b:Materia {id: $destino})
+            CREATE (a)-[:REQUIERE {
+                peso: $peso,
+                obligatorio: $obligatorio,
+                secuela: $secuela
+            }]->(b)
+        """
+        params = {"origen": origen, "destino": destino, "peso": peso,
+                  "obligatorio": obligatorio, "secuela": secuela}
+        print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")
+        self._neo4j.write(query, **params)
+
     def get_related_edges(self, id_materia: str) -> list[dict]:
         query = """
             MATCH (m:Materia {id: $id_materia})
             MATCH (a:Materia)-[r:REQUIERE|ALTERNATIVA]->(b:Materia)
-            WHERE (m)-[:REQUIERE|ALTERNATIVA*0..15]-(a)
-              AND (m)-[:REQUIERE|ALTERNATIVA*0..15]-(b)
+            WHERE (m)-[:REQUIERE|ALTERNATIVA*0..2]-(a)
+              AND (m)-[:REQUIERE|ALTERNATIVA*0..2]-(b)
             RETURN DISTINCT a.id AS source,
                             b.id AS target,
                             type(r) AS tipo,

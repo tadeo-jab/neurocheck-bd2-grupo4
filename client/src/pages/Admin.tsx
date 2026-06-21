@@ -49,6 +49,7 @@ export default function Admin() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [intentos, setIntentos] = useState<Intento[]>([])
   const [error, setError] = useState('')
+  const [passedCount, setPassedCount] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<Tab>('info')
 
   const search = () => {
@@ -56,6 +57,7 @@ export default function Admin() {
     setIntentos([])
     setError('')
     setEstudiante(null)
+    setPassedCount(null)
 
     Promise.all([
       fetch(`/api/admin/sessions/${studentId}`).then(async (res) => {
@@ -66,10 +68,15 @@ export default function Admin() {
         if (!res.ok) throw new Error(await res.text())
         return res.json()
       }),
+      fetch(`/api/admin/passed/${studentId}`).then(async (res) => {
+        if (!res.ok) throw new Error(await res.text())
+        return res.json()
+      }),
     ])
-      .then(([sessions, events]) => {
+      .then(([sessions, events, passed]) => {
         setSesiones(sessions)
         setEventos(events)
+        setPassedCount(passed.aprobadas)
         if (sessions.length > 0) {
           setEstudiante(sessions[0].estudiante)
         }
@@ -96,7 +103,23 @@ export default function Admin() {
 
   return (
     <div style={{ padding: 24 }}>
-      <Link to="/"> Volver a Mis cursos</Link>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Link to="/"> Volver a Mis cursos</Link>
+        <Link
+          to="/populate"
+          style={{
+            padding: '8px 20px',
+            background: '#388e3c',
+            color: 'white',
+            border: 'none',
+            borderRadius: 8,
+            fontWeight: 'bold',
+            textDecoration: 'none',
+          }}
+        >
+          Populate
+        </Link>
+      </div>
       <h1>Admin</h1>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
@@ -161,6 +184,7 @@ export default function Admin() {
               <p><strong>Email:</strong> {estudiante.email}</p>
               <p><strong>ID:</strong> {estudiante.uid}</p>
               <p><strong>Estilo preferido:</strong> {estudiante.estilo_preferido}</p>
+              <p><strong>Materias aprobadas:</strong> {passedCount !== null ? passedCount : '—'}</p>
             </div>
           ) : (
             <p style={{ color: '#888' }}>
