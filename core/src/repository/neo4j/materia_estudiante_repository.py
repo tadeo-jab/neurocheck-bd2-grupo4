@@ -42,12 +42,15 @@ class MateriaEstudianteRepository:
     def set_student_enroll(self, id_estudiante: str, id_materia: str, estilo_preferido: str) -> None:
         query = """
             MATCH (e:Estudiante {id: $id_estudiante}), (m:Materia {id: $id_materia})
-            CREATE (e)-[:ANOTADO_EN {
-                completado: false,
-                fecha_inicio: datetime(),
-                fecha_fin: null,
-                estilo_actual: $estilo_preferido
-            }]->(m)
+            MERGE (e)-[rel:ANOTADO_EN]->(m)
+            ON CREATE SET rel.completado = false,
+                          rel.fecha_inicio = datetime(),
+                          rel.fecha_fin = null,
+                          rel.estilo_actual = $estilo_preferido
+            ON MATCH SET rel.completado = false,
+                         rel.fecha_inicio = datetime(),
+                         rel.fecha_fin = null,
+                         rel.estilo_actual = $estilo_preferido
         """
         params = {"id_estudiante": id_estudiante, "id_materia": id_materia, "estilo_preferido": estilo_preferido}
         print(f"[Neo4j] WRITE {query.strip()}\n       params={params}")

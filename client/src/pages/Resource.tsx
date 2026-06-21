@@ -174,6 +174,25 @@ export default function Resource() {
       .catch((err) => setError(err.message))
   }
 
+  const handleSwitchStyle = (estilo: string) => {
+    fetch('/api/curriculum/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id_estudiante: user.id,
+        id_materia_old: data!.id_materia,
+        id_materia_new: data!.id_materia,
+        estilo_aprendizaje: estilo,
+        sesion_id: localStorage.getItem('sesion_id') ?? '',
+      }),
+    })
+      .then(async (res) => {
+        if (!res.ok) throw new Error(await res.text())
+        navigate('/')
+      })
+      .catch((err) => setError(err.message))
+  }
+
   if (!data) {
     return (
       <div style={{ padding: 24 }}>
@@ -360,19 +379,40 @@ export default function Resource() {
                 </button>
               </>
             ) : (
-              <button
-                onClick={() => navigate(-1)}
-                style={{
-                  padding: '8px 24px',
-                  background: '#1976d2',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: 8,
-                  cursor: 'pointer',
-                }}
-              >
-                Entendido
-              </button>
+              <>
+                <p>¿Cambiar el estilo de aprendizaje de esta materia?</p>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
+                  {ESTILOS.map((estilo) => (
+                    <button
+                      key={estilo}
+                      onClick={() => handleSwitchStyle(estilo)}
+                      style={{
+                        padding: '8px 16px',
+                        background: '#1976d2',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 8,
+                        cursor: 'pointer',
+                        textTransform: 'capitalize',
+                      }}
+                    >
+                      {estilo}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => navigate(-1)}
+                  style={{
+                    padding: '8px 24px',
+                    background: '#ccc',
+                    border: 'none',
+                    borderRadius: 8,
+                    cursor: 'pointer',
+                  }}
+                >
+                  No, gracias
+                </button>
+              </>
             )}
           </div>
         </div>

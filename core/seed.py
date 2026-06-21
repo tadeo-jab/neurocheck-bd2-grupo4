@@ -276,7 +276,7 @@ def seed_neo4j(neo4j: Neo4jService) -> None:
 
     print("[Neo4j] Anotando estudiantes en materias...")
     enrollments = [
-        ("est-001", "mat-prog"),    ("est-001", "mat-fund"),
+        ("est-001", "mat-fund"),
         ("est-001", "mat-prog-ii"),
         ("est-002", "mat-prog"),    ("est-002", "mat-fund"),
         ("est-002", "mat-bdrel"),   ("est-002", "mat-fund-ii"),
